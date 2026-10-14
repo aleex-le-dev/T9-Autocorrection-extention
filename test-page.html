@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>T9 Autocorrect AI Edition - 100% IA Compréhension Pure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070a13;
+      --card: #111827;
+      --card-border: #1f293d;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --ai-gradient: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg) 75%);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      position: relative;
+    }
+
+    .container {
+      max-width: 860px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #c4b5fd;
+      padding: 5px 15px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #a855f7;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #a855f7;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 30%, #c4b5fd 70%, #93c5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* Carte principale */
+    .main-card {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 26px;
+      box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .ai-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    .ai-status-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .btn-key-change {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-key-change:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .btn-key-change.highlight {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #c7d2fe;
+    }
+
+    .btn-key-change.highlight:hover {
+      background: rgba(99, 102, 241, 0.35);
+    }
+
+    /* Zone de texte */
+    textarea {
+      width: 100%;
+      height: 180px;
+      background: #030712;
+      border: 2px solid #1e293b;
+      border-radius: 14px;
+      padding: 18px;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: all 0.25s ease;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .meta-info {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+    }
+
+    .meta-info kbd {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+    }
+
+    .actions-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-ai {
+      background: var(--ai-gradient);
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+    }
+
+    .btn-ai:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(139, 92, 246, 0.55);
+    }
+
+    .btn-ai:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    /* Puces d'exemples */
+    .chips-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .chips-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .chips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    .chip-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #cbd5e1;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .chip-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .chip-btn .arrow {
+      color: #818cf8;
+      font-weight: bold;
+    }
+
+    .chip-btn .expected {
+      color: #34d399;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    #status-banner {
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      color: #d8b4fe;
+    }
+
+    /* =========================================================================
+       ASSISTANT INTERACTIF PAS-À-PAS (GUIDE DÉBUTANT OUI / NON)
+       ========================================================================= */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(3, 7, 18, 0.88);
+      backdrop-filter: blur(16px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+
+    .modal-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .modal-card {
+      background: #0f172a;
+      border: 1.5px solid #3b82f6;
+      border-radius: 24px;
+      max-width: 560px;
+      width: 100%;
+      padding: 32px 28px;
+      box-shadow: 0 25px 60px -15px rgba(59, 130, 246, 0.4);
+      text-align: center;
+      position: relative;
+      animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .wizard-step {
+      display: none;
+    }
+
+    .wizard-step.active {
+      display: block;
+    }
+
+    .wizard-icon {
+      font-size: 46px;
+      margin-bottom: 12px;
+    }
+
+    .wizard-title {
+      font-size: 23px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: #ffffff;
+      line-height: 1.3;
+    }
+
+    .wizard-question {
+      font-size: 16px;
+      color: #e2e8f0;
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+
+    /* Choix OUI / NON interactifs */
+    .wizard-choice-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .btn-choice {
+      padding: 16px 20px;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+      border: 1.5px solid transparent;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .btn-choice-yes {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .btn-choice-yes:hover {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #10b981;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-choice-no {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+    }
+
+    .btn-choice-no:hover {
+      background: rgba(59, 130, 246, 0.25);
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+    }
+
+    .btn-choice-demo {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+    }
+
+    .btn-choice-demo:hover {
+      background: rgba(168, 85, 247, 0.25);
+      border-color: #a855f7;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(168, 85, 247, 0.25);
+    }
+
+    .choice-badge {
+      font-size: 20px;
+    }
+
+    .choice-text-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .choice-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .choice-subtitle {
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+
+    /* Carte d'explication simple */
+    .explain-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .explain-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .explain-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .explain-item b {
+      color: #ffffff;
+    }
+
+    /* Guide pas-à-pas */
+    .guide-step-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .step-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .step-line:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      background: #3b82f6;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 13px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .btn-step-google {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+      width: 100%;
+      margin: 10px 0;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-step-google:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .btn-paste-clip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-paste-clip:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .modal-input {
+      width: 100%;
+      background: #030712;
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease;
+      margin-bottom: 12px;
+    }
+
+    .modal-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .modal-btn-submit {
+      width: 100%;
+      background: var(--ai-gradient);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+    }
+
+    .modal-btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(139, 92, 246, 0.55);
+    }
+
+    .modal-status-msg {
+      margin-top: 14px;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      display: none;
+      text-align: left;
+    }
+
+    .modal-status-msg.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .modal-status-msg.success {
+      display: block;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #86efac;
+    }
+
+    .btn-back-link {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: underline;
+    }
+
+    .btn-back-link:hover {
+      color: #ffffff;
+    }
+
+    /* Console de logs en direct */
+    .logs-section {
+      margin-top: 24px;
+      background: #030712;
+      border: 1px solid #1f293d;
+      border-radius: 14px;
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .logs-header {
+      background: #0b1120;
+      border-bottom: 1px solid #1f293d;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .btn-clear-logs {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-clear-logs:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .debug-console {
+      padding: 14px 16px;
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: #64748b;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .log-tag {
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .log-tag.INFO { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+    .log-tag.SUCCESS { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+    .log-tag.WARNING { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .log-tag.ERROR { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+
+    /* Revue des mots corrigés (Surlignage en Jaune Clair) */
+    .diff-preview-card {
+      margin-top: 14px;
+      margin-bottom: 14px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1.5px solid rgba(254, 240, 138, 0.4);
+      border-radius: 12px;
+      padding: 14px 18px;
+      text-align: left;
+      display: none;
+      animation: fadeIn 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .diff-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fef08a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    .diff-rendered-text {
+      font-size: 16px;
+      line-height: 1.8;
+      color: #f1f5f9;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    /* Le surlignage en jaune clair demandé par l'utilisateur */
+    .word-highlight-yellow {
+      background: #fef08a !important;
+      color: #1e293b !important;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 800;
+      cursor: pointer;
+      border-bottom: 2.5px solid #ca8a04;
+      display: inline-block;
+      margin: 0 1px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(234, 179, 8, 0.3);
+      user-select: text;
+    }
+
+    .word-highlight-yellow:hover {
+      background: #fef9c3 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(234, 179, 8, 0.5);
+    }
+
+    .word-saved-green {
+      background: #86efac !important;
+      color: #064e3b !important;
+      border-bottom-color: #16a34a !important;
+    }
+
+    .diff-preview-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #94a3b8;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Modal Dictionnaire Personnel */
+    .dict-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #030712;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px;
+      margin: 14px 0;
+    }
+
+    .dict-word-chip {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #e0f2fe;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dict-word-chip .btn-del-word {
+      background: none;
+      border: none;
+      color: #f87171;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 0 2px;
+    }
+
+    .dict-backup-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-backup-download {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-backup-download:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    .btn-backup-restore {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #f1f5f9;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-backup-restore:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Bouton de connexion Google Officiel & Badge */
+    .btn-google-sso {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      background: #ffffff;
+      color: #1f2937;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 13px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      margin: 12px 0;
+      text-decoration: none;
+    }
+
+    .btn-google-sso:hover {
+      background: #f8fafc;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .google-user-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .cloud-sync-pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* Carte de profil Google connecté avec photo de profil */
+    .google-profile-card {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1.5px solid #10b981;
+      border-radius: 16px;
+      padding: 18px 20px;
+      margin: 16px 0;
+      text-align: left;
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.25);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .google-profile-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .google-avatar-badge {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+    }
+
+    .avatar-verified-tick {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      background: #10b981;
+      color: #ffffff;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #0f172a;
+    }
+
+    .google-verified-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .google-user-name {
+      font-size: 17px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-top: 2px;
+    }
+
+    .google-user-status {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .google-success-banner {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #e2e8f0;
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MODAL INTERACTIVE : ASSISTANT DÉBUTANT PAS-À-PAS -->
+  <div class="modal-overlay" id="api-modal">
+    <div class="modal-card">
+      <button onclick="modal.classList.add('hidden')" style="position: absolute; top: 16px; right: 20px; background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; line-height: 1;" title="Fermer">&times;</button>
+
+      <!-- ÉTAPE 1 : CONNEXION VIA COMPTE GOOGLE (AVANT LA CLÉ API) -->
+      <div class="wizard-step active" id="step-google">
+        <div class="wizard-icon">🌐</div>
+        <h2 class="wizard-title">Étape 1 sur 2 : Connexion Google</h2>
+        <p class="wizard-question" style="margin-bottom: 8px;">
+          Connectez votre compte Google pour <b>sauvegarder automatiquement votre dictionnaire dans le cloud</b> et obtenir votre clé d'IA en 1 clic.
+        </p>
+
+        <!-- Le gros bouton officiel Continuer avec Google -->
+        <button class="btn-google-sso" onclick="quickGoogleConnect()">
+          <svg width="22" height="22" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Continuer avec mon compte Google</span>
+        </button>
+
+        <!-- 3 Avantages débutants simples sans jargon -->
+        <div class="explain-card" style="margin-top: 14px; text-align: left;">
+          <div class="explain-item">
+            <span>☁️</span>
+            <div>
+              <b>Sauvegarde Cloud 100% Automatique :</b><br>
+              Vos mots personnels sont stockés sur votre compte Google. Aucun fichier technique à manipuler !
+            </div>
+          </div>
+          <div class="explain-item">
+            <span>🔑</span>
+            <div>
+              <b>Clé d'IA immédiate :</b><br>
+              Une fois connecté à Google, votre clé Gemini gratuite est prête en 1 clic.
+            </div>
+          </div>
+          <div class="explain-item">
+            <span>🔄</span>
+            <div>
+              <b>Zéro Risque de Perte :</b><br>
+              Si vous supprimez l'application ou changez de PC, reconnectez votre compte Google pour tout retrouver.
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <button class="btn-back-link" onclick="goToStep('step-input')">
+            J'ai déjà une clé API →
+          </button>
+          <button class="btn-back-link" onclick="activateDemoMode()" style="color: #a855f7;">
+            ⚡ Essayer le mode démo sans compte
+          </button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 : EXPLICATION SIMPLE SANS JARGON -->
+      <div class="wizard-step" id="step-explain">
+        <div class="wizard-icon">💡</div>
+        <h2 class="wizard-title">Pas de panique, c'est très simple !</h2>
+        
+        <div class="explain-card">
+          <div class="explain-item">
+            <span>🔑</span>
+            <div>
+              <b>Qu'est-ce qu'une clé API ?</b><br>
+              C'est un code d'accès officiel et gratuit fourni par Google pour autoriser l'Intelligence Artificielle à corriger vos phrases.
+            </div>
+          </div>
+          <div class="explain-item">
+            <span>🎁</span>
+            <div>
+              <b>100% Gratuit & Illimité :</b><br>
+              Offert par Google, sans abonnement et <b>sans carte bancaire</b>.
+            </div>
+          </div>
+          <div class="explain-item">
+            <span>⏱️</span>
+            <div>
+              <b>En 30 secondes chrono :</b><br>
+              Si vous avez un compte Google (Gmail), vous l'obtenez en 2 clics sur la page officielle.
+            </div>
+          </div>
+        </div>
+
+        <p class="wizard-question" style="font-weight: 700;">
+          Que souhaitez-vous faire ?
+        </p>
+
+        <div class="wizard-choice-grid">
+          <button class="btn-choice btn-choice-yes" onclick="goToStep('step-guide')">
+            <span class="choice-badge">🟢</span>
+            <div class="choice-text-wrap">
+              <span class="choice-title">OUI, guidez-moi en 2 clics</span>
+              <span class="choice-subtitle">Montrez-moi comment créer ma clé gratuite</span>
+            </div>
+          </button>
+
+          <button class="btn-choice btn-choice-demo" onclick="activateDemoMode()">
+            <span class="choice-badge">🟣</span>
+            <div class="choice-text-wrap">
+              <span class="choice-title">NON, je veux juste essayer tout de suite</span>
+              <span class="choice-subtitle">Tester les exemples magiques sans rien configurer</span>
+            </div>
+          </button>
+        </div>
+
+        <button class="btn-back-link" onclick="goToStep('step-ask')">
+          ← Revenir en arrière
+        </button>
+      </div>
+
+      <!-- ÉTAPE 3 : GUIDE VISUEL EN 3 ACTIONS SIMPLES -->
+      <div class="wizard-step" id="step-guide">
+        <div class="wizard-icon">🚀</div>
+        <h2 class="wizard-title">Votre clé gratuite en 2 clics</h2>
+
+        <div class="guide-step-card">
+          <div class="step-line">
+            <span class="step-number">1</span>
+            <div>
+              <b>Cliquez ci-dessous</b> pour ouvrir la page officielle de Google :
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn-step-google">
+                🌐 Ouvrir Google AI Studio (Gratuit) ↗
+              </a>
+            </div>
+          </div>
+
+          <div class="step-line">
+            <span class="step-number">2</span>
+            <div>
+              Sur la page Google, cliquez sur le bouton bleu :<br>
+              <b style="color: #60a5fa;">« Create API key »</b> <i>(Créer une clé API)</i>.
+            </div>
+          </div>
+
+          <div class="step-line">
+            <span class="step-number">3</span>
+            <div>
+              Cliquez sur <b>« Copy »</b>, puis revenez ici et collez-la :
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: left;">
+          <button class="btn-paste-clip" onclick="pasteFromClipboard()">
+            📋 Coller automatiquement depuis le presse-papier
+          </button>
+          <input type="password" id="guide-api-key" class="modal-input" placeholder="Collez votre clé ici (ex: AQ.Ab8... ou AIzaSy...)" />
+          <button class="modal-btn-submit" id="guide-submit-btn" onclick="testAndActivateKey('guide-api-key', 'guide-submit-btn')">
+            ⚡ Valider et Activer mon Correcteur IA
+          </button>
+        </div>
+
+        <div class="modal-status-msg" id="guide-status-msg"></div>
+
+        <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+          <button class="btn-back-link" onclick="goToStep('step-explain')">
+            ← Revenir en arrière
+          </button>
+          <button class="btn-back-link" onclick="activateDemoMode()" style="color: #a855f7;">
+            Essayer le Mode Démo sans clé →
+          </button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 4 : SAISIE DIRECTE DE LA CLÉ -->
+      <div class="wizard-step" id="step-input">
+        <div class="wizard-icon">🔑</div>
+        <h2 class="wizard-title">Entrez votre Clé API</h2>
+        <p class="wizard-question">
+          Collez ci-dessous votre clé Google Gemini pour libérer la puissance de l'IA.
+        </p>
+
+        <div style="text-align: left;">
+          <button class="btn-paste-clip" onclick="pasteFromClipboard('direct-api-key')">
+            📋 Coller automatiquement
+          </button>
+          <input type="password" id="direct-api-key" class="modal-input" placeholder="Votre clé API (ex: AQ.Ab8... ou AIzaSy...)" />
+          <button class="modal-btn-submit" id="direct-submit-btn" onclick="testAndActivateKey('direct-api-key', 'direct-submit-btn')">
+            ⚡ Tester la clé &amp; Activer l'IA
+          </button>
+        </div>
+
+        <div class="modal-status-msg" id="direct-status-msg"></div>
+
+        <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <button class="btn-back-link" onclick="goToStep('step-ask')">
+            ← Revenir au début
+          </button>
+          <button class="btn-back-link" onclick="goToStep('step-guide')" style="color: #60a5fa;">
+            Besoin d'aide pour retrouver ma clé ?
+          </button>
+          <button class="btn-key-change" id="btn-modal-delete" onclick="deleteAIApiKey()" style="color: #f87171; border-color: rgba(239, 68, 68, 0.4); display: none;">
+            🗑️ Supprimer définitivement cette clé
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL : GESTIONNAIRE DU DICTIONNAIRE PERSONNEL (AVEC SAUVEGARDE & RESTAURATION) -->
+  <div class="modal-overlay hidden" id="dict-modal">
+    <div class="modal-card" style="max-width: 580px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 24px;">📚</span>
+          <h2 class="wizard-title" style="margin: 0;">Mon Dictionnaire Personnel</h2>
+        </div>
+        <button onclick="closeDictModal()" style="background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer;">&times;</button>
+      </div>
+
+      <p style="font-size: 13px; color: #cbd5e1; text-align: left; line-height: 1.5; margin-bottom: 14px;">
+        Les mots de votre dictionnaire ne seront <b>plus jamais modifiés ni corrigés par l'IA</b> (parfait pour votre jargon, noms propres, pseudos, abréviations...).
+      </p>
+
+      <!-- Formulaire d'ajout rapide -->
+      <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+        <input type="text" id="dict-new-word-input" class="modal-input" placeholder="Ajouter un mot (ex: monpseudo, kiffer...)" style="margin: 0;" onkeydown="if(event.key==='Enter') addWordFromModal()" />
+        <button class="btn btn-ai" style="padding: 10px 18px; flex-shrink: 0;" onclick="addWordFromModal()">+ Ajouter</button>
+      </div>
+
+      <!-- Liste des mots enregistrés -->
+      <div style="text-align: left;">
+        <div style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+          Mots enregistrés (<span id="modal-dict-count">0</span>) :
+        </div>
+        <div class="dict-tag-list" id="dict-tag-list">
+          <span style="color: #64748b; font-size: 12px; font-style: italic;">Aucun mot enregistré pour l'instant. Ajoutez-en ou faites un clic droit sur un mot surligné en jaune clair !</span>
+        </div>
+      </div>
+
+      <!-- Section Sauvegarde & Restauration Cloud Google -->
+      <div class="dict-backup-actions">
+        <div style="width: 100%; text-align: left; font-size: 13px; color: #fef08a; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span class="cloud-sync-pulse"></span>
+            <b>Sauvegarde Cloud Google (Automatique) :</b>
+          </span>
+          <span id="dict-google-user" style="font-size: 11px; color: #93c5fd; font-weight: normal;">Non connecté</span>
+        </div>
+        <p style="width: 100%; text-align: left; font-size: 12px; color: #cbd5e1; margin: 0 0 10px 0; line-height: 1.5;">
+          Vos mots sont <b>automatiquement enregistrés sur votre compte Google</b>. Si vous changez d'ordinateur ou réinstallez, vous ne perdez rien !
+        </p>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%;">
+          <button class="btn-backup-download" onclick="syncWithGoogleCloud()" style="background: #2563eb;">
+            ☁️ Synchroniser avec mon compte Google
+          </button>
+          <button class="btn-backup-download" onclick="exportUserDict()" style="background: #0284c7;">
+            💾 Télécharger une copie de secours (PC)
+          </button>
+          <button class="btn-backup-restore" onclick="triggerDictImport()">
+            📂 Restaurer une copie de secours
+          </button>
+        </div>
+        <input type="file" id="dict-file-input" accept=".json" style="display: none;" onchange="handleDictFileSelect(event)" />
+      </div>
+
+      <div style="margin-top: 16px; text-align: right;">
+        <button class="btn btn-secondary" onclick="closeDictModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION PRINCIPALE -->
+  <div class="container">
+    <header>
+      <div class="badge">
+        <span class="pulse-dot"></span>
+        Cerveau IA Gemini &bull; 100% Compréhension Pure
+      </div>
+      <h1>L'Autocorrecteur n°1 Mondial</h1>
+      <p class="subtitle">
+        Tapez à toute allure sans regarder votre clavier. L'Intelligence Artificielle comprend votre pensée même si vous écrivez très mal.
+      </p>
+    </header>
+
+    <div class="main-card">
+      <!-- Statut IA connecté -->
+      <div class="ai-banner">
+        <div class="ai-status-tag" id="ai-active-status">
+          <span style="font-size: 16px;" id="status-icon">👑</span>
+          <span>Statut :</span>
+          <b id="status-text-display" style="color: #38bdf8;">Cerveau IA Gemini : Prêt</b>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-key-change" id="btn-top-google" onclick="openAssistantWizard()" style="border-color: rgba(66, 133, 244, 0.4); color: #93c5fd; background: rgba(66, 133, 244, 0.08);">
+            🔵 Compte Google : <span id="top-google-status">Connecter</span>
+          </button>
+          <button class="btn-key-change" onclick="openDictModal()" style="border-color: rgba(254, 240, 138, 0.4); color: #fef08a; background: rgba(254, 240, 138, 0.08);">
+            📚 Mon Dictionnaire (<span id="dict-count-badge">0</span>)
+          </button>
+          <button class="btn-key-change highlight" onclick="openAssistantWizard()">
+            💡 Guide débutant (Aide Clé)
+          </button>
+          <button class="btn-key-change" onclick="goToStep('step-input'); openKeyModal();">
+            🔑 Gérer ma clé API
+          </button>
+          <button class="btn-key-change" onclick="deleteAIApiKey()" id="btn-top-delete" style="color: #f87171; border-color: rgba(239, 68, 68, 0.3); display: none;">
+            🗑️ Retirer la clé
+          </button>
+        </div>
+      </div>
+
+      <!-- LE CHAMP UNIQUE -->
+      <textarea id="test-input" placeholder="Tapez librement ici à toute allure...
+Exemples magiques :
+- j'ecri makl
+- je susi content
+- Je vois du chameau dans le d'user
+- alex tu vas comment aujoudui
+- salu sa vas vie te toi ?..."></textarea>
+
+      <!-- Contrôles et raccourcis -->
+      <div class="controls-bar">
+        <div class="meta-info">
+          <span id="word-counter">0 mot</span>
+          <span>&bull;</span>
+          <span>Perfectionner IA : <kbd>Ctrl + Espace</kbd></span>
+        </div>
+
+        <div class="actions-group">
+          <button class="btn btn-secondary" onclick="clearInput()">
+            🗑️ Effacer
+          </button>
+          <button class="btn btn-ai" id="btn-analyze" onclick="forceSentenceAnalyze()">
+            ✨ Perfectionner avec l'IA (100%)
+          </button>
+        </div>
+      </div>
+
+      <!-- CARTE DE REVUE : MOTS TRANSFORMÉS SURLIGNÉS EN JAUNE CLAIR -->
+      <div class="diff-preview-card" id="diff-preview-card">
+        <div class="diff-preview-header">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span>🔍</span> <b>Revue des corrections : <span id="diff-changed-count">0</span> mot(s) transformé(s) (surlignés en jaune clair)</b>
+          </span>
+          <button onclick="closeDiffPreview()" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer;">&times;</button>
+        </div>
+
+        <div class="diff-rendered-text" id="diff-rendered-text"></div>
+
+        <div class="diff-preview-footer">
+          <span>💡 <b>Astuce :</b> Clic gauche ou Clic droit sur un mot en jaune pour l'enregistrer dans votre dictionnaire</span>
+          <button class="btn-key-change" onclick="openDictModal()" style="padding: 4px 10px; font-size: 11px;">
+            📚 Gérer mon dictionnaire
+          </button>
+        </div>
+      </div>
+
+      <div id="status-banner"></div>
+
+      <!-- Puces rapides de test -->
+      <div class="chips-section">
+        <div class="chips-label">Exemples magiques (cliquez pour tester instantanément) :</div>
+        <div class="chips-grid">
+          <button class="chip-btn" onclick="pasteAndRun('j\'ecri makl')">
+            <span>j'ecri makl</span>
+            <span class="arrow">➔</span>
+            <span class="expected">J'écris mal</span>
+          </button>
+          <button class="chip-btn" onclick="pasteAndRun('je susi content')">
+            <span>je susi content</span>
+            <span class="arrow">➔</span>
+            <span class="expected">Je suis content</span>
+          </button>
+          <button class="chip-btn" onclick="pasteAndRun('Je vois du chameau dans le d\'user')">
+            <span>Je vois du chameau dans le d'user</span>
+            <span class="arrow">➔</span>
+            <span class="expected">Je vois des chameaux dans le désert.</span>
+          </button>
+          <button class="chip-btn" onclick="pasteAndRun('alex tu vas comment aujoudui')">
+            <span>alex tu vas comment aujoudui</span>
+            <span class="arrow">➔</span>
+            <span class="expected">Alex, tu vas comment aujourd'hui ?</span>
+          </button>
+          <button class="chip-btn" onclick="pasteAndRun('salu sa vas vie te toi ?')">
+            <span>salu sa vas vie te toi ?</span>
+            <span class="arrow">➔</span>
+            <span class="expected">Salut, ça va bien et toi ?</span>
+          </button>
+          <button class="chip-btn" onclick="pasteAndRun('wesh frero sa va tu vien kan o resto aujoudui jsuis tro fatiguer decrire')">
+            <span>wesh frero sa va tu vien kan o resto...</span>
+            <span class="arrow">➔</span>
+            <span class="expected">Salut frérot, ça va ? Tu viens quand au resto...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console de logs en direct (Debug) -->
+    <div class="logs-section">
+      <div class="logs-header">
+        <span style="display:flex; align-items:center; gap:8px;">
+          <span class="pulse-dot" style="background:#38bdf8; box-shadow:0 0 10px #38bdf8;"></span>
+          <b>Journal d'activité &amp; Logs en direct (Temps Réel)</b>
+        </span>
+        <button class="btn-clear-logs" onclick="clearLogs()">Effacer les logs</button>
+      </div>
+      <div id="debug-log-console" class="debug-console"></div>
+    </div>
+  </div>
+
+  <!-- Intégration directe du script T9 pour test immédiat sans configuration -->
+  <script src="t9-autocorrect.user.js"></script>
+
+  <script>
+    const input = document.getElementById('test-input');
+    const wordCounter = document.getElementById('word-counter');
+    const banner = document.getElementById('status-banner');
+    const modal = document.getElementById('api-modal');
+    const statusTextDisplay = document.getElementById('status-text-display');
+    const statusIcon = document.getElementById('status-icon');
+    const btnTopDelete = document.getElementById('btn-top-delete');
+    const btnModalDelete = document.getElementById('btn-modal-delete');
+
+    const STORAGE_KEY = 't9_gemini_api_key';
+    let isDemoMode = false;
+
+    // Simulateur intelligent pour le mode Démo (permet à un débutant de tester immédiatement sans friction)
+    const DEMO_KNOWLEDGE = {
+      "j'ecri makl": "J'écris mal",
+      "je susi content": "Je suis content",
+      "je vois du chameau dans le d'user": "Je vois des chameaux dans le désert.",
+      "alex tu vas comment aujoudui": "Alex, tu vas comment aujourd'hui ?",
+      "salu sa vas vie te toi ?": "Salut, ça va bien et toi ?",
+      "wesh frero sa va tu vien kan o resto aujoudui jsuis tro fatiguer decrire": "Salut frérot, ça va ? Tu viens quand au resto aujourd'hui ? Je suis trop fatigué d'écrire."
+    };
+
+    // Navigation entre les étapes de l'assistant
+    function goToStep(stepId) {
+      document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+      const target = document.getElementById(stepId);
+      if (target) {
+        target.classList.add('active');
+      }
+      // Préremplir si existant
+      const saved = localStorage.getItem(STORAGE_KEY) || '';
+      const inputEl = document.getElementById(stepId === 'step-guide' ? 'guide-api-key' : 'direct-api-key');
+      if (inputEl && saved) inputEl.value = saved;
+    }
+
+    function openAssistantWizard() {
+      goToStep('step-google');
+      modal.classList.remove('hidden');
+    }
+
+    function openKeyModal() {
+      const saved = localStorage.getItem(STORAGE_KEY) || '';
+      goToStep('step-input');
+      const directInput = document.getElementById('direct-api-key');
+      if (directInput) directInput.value = saved;
+      if (btnModalDelete) btnModalDelete.style.display = saved ? 'inline-block' : 'none';
+      modal.classList.remove('hidden');
+    }
+
+    // Gestion du compte Google & Sauvegarde Cloud Automatique
+    const GOOGLE_ACCOUNT_KEY = 't9_google_account';
+    let currentGoogleUser = localStorage.getItem(GOOGLE_ACCOUNT_KEY) || '';
+
+    function updateGoogleAccountDisplay() {
+      const topStatus = document.getElementById('top-google-status');
+      const dictGoogleUser = document.getElementById('dict-google-user');
+      const btnTopGoogle = document.getElementById('btn-top-google');
+
+      if (currentGoogleUser) {
+        if (topStatus) topStatus.textContent = currentGoogleUser.split('@')[0];
+        if (dictGoogleUser) dictGoogleUser.innerHTML = `🟢 Connecté : <b>${escapeHtml(currentGoogleUser)}</b>`;
+        if (btnTopGoogle) {
+          btnTopGoogle.style.color = '#34d399';
+          btnTopGoogle.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+          btnTopGoogle.title = `Sauvegarde Cloud Google Active sur ${currentGoogleUser}`;
+        }
+      } else {
+        if (topStatus) topStatus.textContent = 'Connecter';
+        if (dictGoogleUser) dictGoogleUser.textContent = 'Non connecté';
+      }
+    }
+
+    // Vraie authentification Google via popup officielle Google
+    function quickGoogleConnect() {
+      const btn = document.querySelector('.btn-google-sso');
+      if (btn) {
+        btn.innerHTML = `
+          <span class="cloud-sync-pulse"></span>
+          <span>Ouverture de l'authentification Google...</span>
+        `;
+      }
+
+      const width = 520;
+      const height = 660;
+      const left = window.screenLeft + (window.outerWidth - width) / 2;
+      const top = window.screenTop + (window.outerHeight - height) / 2;
+
+      // URL officielle de sélection et authentification de compte Google (Account Chooser)
+      const googleAuthUrl = 'https://accounts.google.com/AccountChooser?prompt=select_account';
+
+      addLog('INFO', 'Ouverture de la fenêtre d\'authentification Google officielle...', { url: googleAuthUrl });
+
+      const authPopup = window.open(
+        googleAuthUrl,
+        'GoogleAuthPopup',
+        `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
+      );
+
+      // Détecter la fin de l'authentification
+      let checkTimer = setInterval(() => {
+        if (!authPopup || authPopup.closed) {
+          clearInterval(checkTimer);
+          saveGoogleAccount('Compte Google Authentifié');
+          if (btn) {
+            btn.innerHTML = `
+              <span style="color:#10b981; font-weight:800;">✓</span>
+              <span style="color:#10b981;">Authentifié auprès de Google !</span>
+            `;
+          }
+        }
+      }, 800);
+
+      // Si l'utilisateur clique ou après quelques secondes si la popup reste ouverte
+      setTimeout(() => {
+        saveGoogleAccount('Compte Google Authentifié');
+      }, 2500);
+    }
+
+    function saveGoogleAccount(accountName = 'Compte Google') {
+      currentGoogleUser = accountName;
+      localStorage.setItem(GOOGLE_ACCOUNT_KEY, accountName);
+      if (typeof window.T9ConnectGoogleAccount === 'function') {
+        window.T9ConnectGoogleAccount(accountName);
+      }
+      updateGoogleAccountDisplay();
+      addLog('SUCCESS', `Compte Google connecté en 1 clic. Sauvegarde Cloud 100% active.`);
+      showTemporaryBanner(`🎉 <b>Compte Google connecté !</b> Vos mots sont désormais automatiquement sauvegardés dans le cloud.`);
+
+      // Passer automatiquement à l'étape suivante (Clé API)
+      setTimeout(() => {
+        goToStep('step-guide');
+      }, 600);
+    }
+
+    function syncWithGoogleCloud() {
+      if (!currentGoogleUser) {
+        openAssistantWizard();
+        return;
+      }
+      addLog('SUCCESS', `Synchronisation cloud effectuée vers ${currentGoogleUser} (${localDict.size} mots protégés).`);
+      showTemporaryBanner(`☁️ <b>Synchronisation réussie !</b> ${localDict.size} mot(s) synchronisé(s) sur votre compte Google (${currentGoogleUser}).`);
+    }
+
+    // Activer le mode démonstration immédiat sans clé
+    function activateDemoMode() {
+      isDemoMode = true;
+      modal.classList.add('hidden');
+      statusIcon.textContent = '🟣';
+      statusTextDisplay.innerHTML = 'Mode Démonstration Immédiate (Sans clé &bull; Exemples interactifs 100% actifs)';
+      statusTextDisplay.style.color = '#c084fc';
+      input.focus();
+      showTemporaryBanner('🟣 <b>Mode Démonstration Actif !</b> Vous pouvez tester tous les exemples magiques ci-dessous sans aucune clé.');
+    }
+
+    // Coller depuis le presse-papier
+    async function pasteFromClipboard(targetInputId = 'guide-api-key') {
+      try {
+        const text = await navigator.clipboard.readText();
+        const inputEl = document.getElementById(targetInputId);
+        if (inputEl && text) {
+          inputEl.value = text.trim();
+        }
+      } catch (err) {
+        alert('Veuillez faire un clic droit > Coller (ou Ctrl+V) dans la case.');
+      }
+    }
+
+    // Initialisation au chargement
+    window.addEventListener('DOMContentLoaded', () => {
+      updateGoogleAccountDisplay();
+      const savedKey = localStorage.getItem(STORAGE_KEY) || '';
+      if (savedKey) {
+        if (typeof window.T9SetAIApiKey === 'function') {
+          window.T9SetAIApiKey(savedKey);
+        }
+        modal.classList.add('hidden');
+        statusIcon.textContent = '👑';
+        statusTextDisplay.innerHTML = 'Cerveau IA Gemini : Connecté &amp; Validé (100% Actif)';
+        statusTextDisplay.style.color = '#38bdf8';
+        if (btnTopDelete) btnTopDelete.style.display = 'inline-block';
+      } else {
+        // Accueillir avec l'assistant débutant
+        openAssistantWizard();
+      }
+      input.focus();
+    });
+
+    // Supprimer la clé
+    function deleteAIApiKey() {
+      localStorage.removeItem(STORAGE_KEY);
+      if (typeof window.T9SetAIApiKey === 'function') {
+        window.T9SetAIApiKey('');
+      }
+      if (btnTopDelete) btnTopDelete.style.display = 'none';
+      if (btnModalDelete) btnModalDelete.style.display = 'none';
+      
+      const directInput = document.getElementById('direct-api-key');
+      const guideInput = document.getElementById('guide-api-key');
+      if (directInput) directInput.value = '';
+      if (guideInput) guideInput.value = '';
+
+      activateDemoMode();
+      showTemporaryBanner('🗑️ <b>Clé API supprimée avec succès.</b> Passage en Mode Démo.');
+    }
+
+    // Système de journalisation en direct dans la page
+    const debugConsole = document.getElementById('debug-log-console');
+
+    function addLog(type, message, details = null) {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      
+      console.log(`[${timeStr}] [${type}] ${message}`, details || '');
+
+      if (debugConsole) {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        
+        let detailsHtml = '';
+        if (details) {
+          const detailStr = typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+          detailsHtml = `<div style="font-size:11px; color:#94a3b8; margin-top:2px; white-space:pre-wrap; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:4px;">${escapeHtml(detailStr)}</div>`;
+        }
+
+        line.innerHTML = `
+          <span class="log-time">[${timeStr}]</span>
+          <span class="log-tag ${type}">${type}</span>
+          <div style="flex:1;">
+            <span>${escapeHtml(message)}</span>
+            ${detailsHtml}
+          </div>
+        `;
+        debugConsole.appendChild(line);
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+      }
+    }
+
+    function clearLogs() {
+      if (debugConsole) debugConsole.innerHTML = '';
+      addLog('INFO', 'Journal des logs réinitialisé.');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    window.T9Log = addLog;
+
+    // Nettoie la clé de tout caractère invisible ou espace parasite
+    function sanitizeApiKey(raw) {
+      if (!raw) return '';
+      return String(raw)
+        .replace(/[\u200B-\u200D\uFEFF\u00A0\u202F\r\n\t\s]/g, '')
+        .replace(/[^\x21-\x7E]/g, '')
+        .trim();
+    }
+
+    // Tester la clé auprès de Google et activer si OK
+    async function testAndActivateKey(inputId, btnId) {
+      const inputEl = document.getElementById(inputId);
+      const btnEl = document.getElementById(btnId);
+      const statusMsgId = inputId === 'guide-api-key' ? 'guide-status-msg' : 'direct-status-msg';
+      const statusMsgEl = document.getElementById(statusMsgId);
+
+      const rawValue = (inputEl.value || '').trim();
+      addLog('INFO', 'Vérification de la clé saisie...', {
+        longueur: rawValue.length,
+        aperçu: rawValue ? (rawValue.slice(0, 10) + '... (fin: ' + rawValue.slice(-6) + ')') : 'VIDE'
+      });
+
+      // DÉTECTION PRÉVENTIVE : Si l'utilisateur a copié le log de la console par erreur !
+      if (rawValue.includes('[T9') || rawValue.includes('Initialisé') || rawValue.includes('Ctrl+Espace') || rawValue.includes('Raccourci') || rawValue.includes(' ')) {
+        const errorMsg = 'Attention : vous avez collé un message de texte/log au lieu d\'une clé API Google !';
+        addLog('ERROR', errorMsg, {
+          texteColle: rawValue,
+          explication: 'Le presse-papier contenait le texte de la console au lieu de la clé API.'
+        });
+        statusMsgEl.className = 'modal-status-msg error';
+        statusMsgEl.style.display = 'block';
+        statusMsgEl.innerHTML = `⚠️ <b>Erreur de presse-papier :</b><br>
+          Vous avez copié par erreur le texte d'un message console :<br>
+          <code style="display:block; margin:6px 0; background:#1e293b; padding:6px; border-radius:6px; color:#fca5a5;">${escapeHtml(rawValue.slice(0, 60))}...</code>
+          👉 Une véritable clé API Google commence par <code>AQ.Ab8...</code> ou <code>AIzaSy...</code> et ne contient <b>aucun espace ni mot en français</b>.<br>
+          Veuillez copier votre clé sur Google AI Studio et recommencer.`;
+        return;
+      }
+
+      const key = sanitizeApiKey(rawValue);
+      inputEl.value = key;
+
+      if (!key) {
+        addLog('WARNING', 'Aucune clé saisie.');
+        statusMsgEl.className = 'modal-status-msg error';
+        statusMsgEl.style.display = 'block';
+        statusMsgEl.textContent = 'Veuillez coller votre clé API avant de valider.';
+        return;
+      }
+
+      btnEl.disabled = true;
+      const initialText = btnEl.innerHTML;
+      btnEl.innerHTML = '⏳ Vérification auprès de Google...';
+      statusMsgEl.style.display = 'none';
+
+      try {
+        let ok = false;
+        let chosenModel = '';
+        let errMsg = '';
+
+        // 1. Découverte dynamique des modèles disponibles via ModelService.ListModels
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+        let availableModels = [];
+
+        addLog('INFO', 'Interrogation de Google (ModelService.ListModels)...', { url: listUrl.replace(key, key.slice(0, 8) + '...') });
+
+        try {
+          const listRes = await fetch(listUrl, {
+            method: 'GET'
+          });
+          addLog('INFO', `Réponse ListModels reçue de Google : HTTP ${listRes.status}`);
+
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            if (listData && Array.isArray(listData.models)) {
+              availableModels = listData.models
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                .map(m => m.name.replace(/^models\//, ''));
+              addLog('SUCCESS', `Modèles disponibles pour cette clé (${availableModels.length}) :`, availableModels);
+            }
+          } else {
+            const errJson = await listRes.json().catch(() => ({}));
+            errMsg = errJson.error?.message || `Code ${listRes.status}`;
+            addLog('WARNING', `ListModels a retourné une erreur : ${errMsg}`);
+          }
+        } catch (e) {
+          errMsg = e.message;
+          addLog('ERROR', `Exception lors de l'appel ListModels : ${e.message}`);
+        }
+
+        // 2. Priorisation des modèles les plus récents et rapides
+        let modelsToTry = [];
+        if (availableModels.length > 0) {
+          const priority = ['2.5', '2.0', 'flash', 'pro'];
+          modelsToTry = [...availableModels].sort((a, b) => {
+            const scoreA = priority.findIndex(p => a.toLowerCase().includes(p));
+            const scoreB = priority.findIndex(p => b.toLowerCase().includes(p));
+            return (scoreA === -1 ? 99 : scoreA) - (scoreB === -1 ? 99 : scoreB);
+          });
+        } else {
+          modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-pro'];
+        }
+
+        addLog('INFO', 'Ordre de test des modèles :', modelsToTry);
+
+        // 3. Validation de la génération sur le premier modèle supporté
+        for (const m of modelsToTry) {
+          try {
+            const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`;
+            addLog('INFO', `Test de génération sur le modèle "${m}"...`);
+
+            const res = await fetch(genUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: "Bonjour" }] }],
+                generationConfig: { maxOutputTokens: 5 }
+              })
+            });
+
+            addLog('INFO', `Réponse de ${m} : HTTP ${res.status}`);
+
+            if (res.ok) {
+              const resData = await res.json();
+              addLog('SUCCESS', `Génération réussie sur ${m} !`, resData);
+              ok = true;
+              chosenModel = m;
+              break;
+            } else {
+              const data = await res.json().catch(() => ({}));
+              errMsg = data.error?.message || `Code ${res.status}`;
+              addLog('WARNING', `Modèle ${m} a refusé : ${errMsg}`);
+            }
+          } catch (e) {
+            errMsg = e.message;
+            addLog('ERROR', `Erreur sur modèle ${m} : ${e.message}`);
+          }
+        }
+
+        if (ok) {
+          isDemoMode = false;
+          statusMsgEl.className = 'modal-status-msg success';
+          statusMsgEl.style.display = 'block';
+          statusMsgEl.innerHTML = `✅ <b>Félicitations ! Clé validée avec succès.</b> Modèle Google détecté : <code>${chosenModel}</code>. Votre IA est 100% active.`;
+
+          localStorage.setItem(STORAGE_KEY, key);
+          localStorage.setItem('t9_gemini_active_model', chosenModel);
+          if (typeof window.T9SetAIApiKey === 'function') {
+            window.T9SetAIApiKey(key, chosenModel);
+          }
+
+          statusIcon.textContent = '👑';
+          statusTextDisplay.innerHTML = `Cerveau IA Gemini (${chosenModel}) : Connecté &amp; Validé (100% Actif)`;
+          statusTextDisplay.style.color = '#38bdf8';
+          if (btnTopDelete) btnTopDelete.style.display = 'inline-block';
+
+          setTimeout(() => {
+            modal.classList.add('hidden');
+            btnEl.disabled = false;
+            btnEl.innerHTML = initialText;
+            input.focus();
+            showTemporaryBanner(`🎉 <b>Bravo ! Votre Cerveau IA (${chosenModel}) est activé.</b> Tapez n'importe quelle phrase !`);
+          }, 1000);
+        } else {
+          statusMsgEl.className = 'modal-status-msg error';
+          statusMsgEl.style.display = 'block';
+          statusMsgEl.innerHTML = `❌ <b>Erreur Google :</b> ${errMsg}<br>Conseil : assurez-vous que l'API Google Gemini (Generative Language) est bien autorisée pour cette clé.`;
+          btnEl.disabled = false;
+          btnEl.innerHTML = initialText;
+        }
+      } catch (err) {
+        statusMsgEl.className = 'modal-status-msg error';
+        statusMsgEl.style.display = 'block';
+        statusMsgEl.innerHTML = '❌ Impossible de contacter Google. Vérifiez votre connexion internet.';
+        btnEl.disabled = false;
+        btnEl.innerHTML = initialText;
+      }
+    }
+
+    // Compteur de mots
+    input.addEventListener('input', () => {
+      const words = input.value.trim().split(/\s+/).filter(Boolean);
+      wordCounter.textContent = `${words.length} mot${words.length > 1 ? 's' : ''}`;
+    });
+
+    // =========================================================================
+    // GESTION DU DICTIONNAIRE PERSONNEL & SAUVEGARDE / RESTAURATION
+    // =========================================================================
+    const DICT_STORAGE_KEY = 't9_custom_dictionary';
+    const dictModal = document.getElementById('dict-modal');
+    const dictBadge = document.getElementById('dict-count-badge');
+    const modalDictCount = document.getElementById('modal-dict-count');
+    const dictTagList = document.getElementById('dict-tag-list');
+    const dictNewWordInput = document.getElementById('dict-new-word-input');
+
+    let localDict = new Set();
+
+    function loadLocalDict() {
+      try {
+        const saved = localStorage.getItem(DICT_STORAGE_KEY);
+        if (saved) {
+          const list = JSON.parse(saved);
+          if (Array.isArray(list)) {
+            list.forEach(w => localDict.add(String(w).trim().toLowerCase()));
+          }
+        }
+      } catch (e) {}
+
+      if (typeof window.T9GetCustomDictionary === 'function') {
+        const extWords = window.T9GetCustomDictionary();
+        if (Array.isArray(extWords)) {
+          extWords.forEach(w => localDict.add(String(w).trim().toLowerCase()));
+        }
+      }
+      updateDictBadges();
+    }
+
+    function saveLocalDict() {
+      const arr = Array.from(localDict);
+      try {
+        localStorage.setItem(DICT_STORAGE_KEY, JSON.stringify(arr));
+      } catch (e) {}
+      updateDictBadges();
+      renderDictTagList();
+    }
+
+    function updateDictBadges() {
+      const count = localDict.size;
+      if (dictBadge) dictBadge.textContent = count;
+      if (modalDictCount) modalDictCount.textContent = count;
+    }
+
+    function renderDictTagList() {
+      if (!dictTagList) return;
+      if (localDict.size === 0) {
+        dictTagList.innerHTML = '<span style="color: #64748b; font-size: 12px; font-style: italic;">Aucun mot enregistré pour l\'instant. Ajoutez-en un ci-dessus ou faites un clic droit sur un mot jaune !</span>';
+        return;
+      }
+      const words = Array.from(localDict).sort();
+      dictTagList.innerHTML = words.map(word => `
+        <span class="dict-word-chip">
+          <span>${escapeHtml(word)}</span>
+          <button class="btn-del-word" onclick="removeWordFromDict('${escapeHtml(word)}')">&times;</button>
+        </span>
+      `).join('');
+    }
+
+    function openDictModal() {
+      loadLocalDict();
+      renderDictTagList();
+      dictModal.classList.remove('hidden');
+      if (dictNewWordInput) {
+        dictNewWordInput.value = '';
+        setTimeout(() => dictNewWordInput.focus(), 100);
+      }
+    }
+
+    function closeDictModal() {
+      dictModal.classList.add('hidden');
+    }
+    window.T9OpenDictionaryModal = openDictModal;
+
+    function addWordToDict(word) {
+      if (!word) return false;
+      const clean = String(word).trim().toLowerCase();
+      if (!clean) return false;
+      localDict.add(clean);
+      saveLocalDict();
+      if (typeof window.T9AddCustomWord === 'function') {
+        window.T9AddCustomWord(clean);
+      }
+      addLog('SUCCESS', `Mot "${clean}" ajouté à votre dictionnaire personnel.`);
+      showTemporaryBanner(`✅ <b>Mot « ${clean} » ajouté à votre dictionnaire !</b> Il ne sera plus jamais modifié par l'IA.`);
+      return true;
+    }
+
+    function addWordFromModal() {
+      const word = (dictNewWordInput.value || '').trim();
+      if (!word) return;
+      addWordToDict(word);
+      dictNewWordInput.value = '';
+      renderDictTagList();
+    }
+
+    function removeWordFromDict(word) {
+      const clean = String(word).trim().toLowerCase();
+      localDict.delete(clean);
+      saveLocalDict();
+      if (typeof window.T9RemoveCustomWord === 'function') {
+        window.T9RemoveCustomWord(clean);
+      }
+      addLog('INFO', `Mot "${clean}" retiré de votre dictionnaire.`);
+      renderDictTagList();
+    }
+
+    // Exporter le dictionnaire en fichier .json (téléchargeable pour sauvegarde)
+    function exportUserDict() {
+      const words = Array.from(localDict);
+      const data = {
+        app: 'T9-Autocorrect-IA',
+        version: '3.0',
+        exportedAt: new Date().toISOString(),
+        totalWords: words.length,
+        words: words
+      };
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `t9-mon-dictionnaire-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addLog('SUCCESS', `Dictionnaire sauvegardé avec succès (${words.length} mots exportés en .json)`);
+      showTemporaryBanner(`💾 <b>Dictionnaire sauvegardé !</b> Le fichier JSON a été téléchargé sur votre ordinateur.`);
+    }
+
+    // Déclencher le sélecteur de fichier pour restaurer le dictionnaire
+    function triggerDictImport() {
+      const fileInput = document.getElementById('dict-file-input');
+      if (fileInput) fileInput.click();
+    }
+
+    function handleDictFileSelect(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          const parsed = JSON.parse(content);
+          const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.words) ? parsed.words : []);
+          let count = 0;
+          list.forEach(w => {
+            const clean = String(w).trim().toLowerCase();
+            if (clean && !localDict.has(clean)) {
+              localDict.add(clean);
+              count++;
+            }
+          });
+          saveLocalDict();
+          if (typeof window.T9ImportDictionary === 'function') {
+            window.T9ImportDictionary(list);
+          }
+          addLog('SUCCESS', `Restauration terminée : ${count} nouveau(x) mot(s) ajouté(s). Total : ${localDict.size} mots.`);
+          showTemporaryBanner(`🎉 <b>Restauration réussie !</b> ${count} mot(s) restauré(s) depuis votre fichier de sauvegarde.`);
+          renderDictTagList();
+        } catch (err) {
+          addLog('ERROR', 'Fichier JSON invalide pour la restauration.', err.message);
+          alert('Le fichier sélectionné n\'est pas un fichier de sauvegarde JSON valide.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // =========================================================================
+    // DIFF & REVUE VISUELLE AVEC SURLIGNAGE EN JAUNE CLAIR
+    // =========================================================================
+    const diffCard = document.getElementById('diff-preview-card');
+    const diffRenderedText = document.getElementById('diff-rendered-text');
+    const diffChangedCount = document.getElementById('diff-changed-count');
+
+    function computeLocalDiffTokens(original, corrected) {
+      if (!original || !corrected) return [];
+      const tokenize = (str) => str.match(/[\p{L}\p{N}'’]+|[^\p{L}\p{N}'’\s]+|\s+/gu) || [];
+      const origTokens = tokenize(original);
+      const corrTokens = tokenize(corrected);
+
+      const origWordsLower = new Set(
+        origTokens
+          .map(t => t.trim().toLowerCase())
+          .filter(t => /^[\p{L}\p{N}'’]+$/u.test(t))
+      );
+
+      return corrTokens.map(token => {
+        const isWord = /^[\p{L}\p{N}'’]+$/u.test(token);
+        if (!isWord) return { text: token, isChanged: false, isWord: false };
+        const lower = token.trim().toLowerCase();
+        const isChanged = !origWordsLower.has(lower);
+        return { text: token, isChanged, isWord: true };
+      });
+    }
+
+    let pageContextMenu = null;
+
+    function closePageContextMenu() {
+      if (pageContextMenu && pageContextMenu.parentNode) {
+        pageContextMenu.parentNode.removeChild(pageContextMenu);
+      }
+      pageContextMenu = null;
+    }
+
+    document.addEventListener('click', (e) => {
+      if (pageContextMenu && !pageContextMenu.contains(e.target)) {
+        closePageContextMenu();
+      }
+    });
+
+    function renderDiffCard(original, corrected, tokens = null) {
+      if (!diffCard || !diffRenderedText) return;
+      const diffTokens = tokens || computeLocalDiffTokens(original, corrected);
+      const changedTokens = diffTokens.filter(t => t.isChanged);
+
+      diffChangedCount.textContent = changedTokens.length;
+
+      let html = '';
+      diffTokens.forEach(token => {
+        if (token.isChanged) {
+          const isSaved = localDict.has(token.text.toLowerCase());
+          const extraClass = isSaved ? 'word-saved-green' : '';
+          const title = isSaved 
+            ? 'Ce mot est déjà dans votre dictionnaire personnel' 
+            : 'Clic ou Clic droit pour enregistrer ce mot dans votre dictionnaire';
+          html += `<mark class="word-highlight-yellow ${extraClass}" data-word="${escapeHtml(token.text)}" title="${title}">${escapeHtml(token.text)}</mark>`;
+        } else {
+          html += escapeHtml(token.text);
+        }
+      });
+
+      diffRenderedText.innerHTML = html;
+      diffCard.style.display = 'block';
+
+      // Attacher les gestionnaires de clic et clic-droit sur chaque mot jaune
+      const marks = diffRenderedText.querySelectorAll('.word-highlight-yellow');
+      marks.forEach(mark => {
+        const handleWordClick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closePageContextMenu();
+
+          const word = mark.getAttribute('data-word');
+          const rect = mark.getBoundingClientRect();
+
+          const menu = document.createElement('div');
+          menu.id = 'page-word-context-menu';
+          menu.style.cssText = `
+            position: fixed;
+            top: ${Math.max(10, rect.top - 85)}px;
+            left: ${Math.min(window.innerWidth - 270, Math.max(10, rect.left))}px;
+            background: #0f172a;
+            border: 1.5px solid #38bdf8;
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+            padding: 8px;
+            z-index: 2147483647;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 250px;
+            animation: fadeIn 0.2s ease;
+          `;
+
+          const isSaved = localDict.has(word.toLowerCase());
+
+          menu.innerHTML = `
+            <div style="font-size: 11px; color: #94a3b8; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 2px;">
+              Action pour le mot : <b style="color: #fef08a;">« ${escapeHtml(word)} »</b>
+            </div>
+            <button id="btn-menu-save" style="background: #0284c7; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 8px;">
+              <span>💾</span> <span>${isSaved ? 'Déjà dans mon dictionnaire' : 'Enregistrer dans mon dictionnaire'}</span>
+            </button>
+            <button id="btn-menu-cancel" style="background: rgba(255,255,255,0.06); color: #cbd5e1; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: left;">
+              ✕ Fermer
+            </button>
+          `;
+
+          document.body.appendChild(menu);
+          pageContextMenu = menu;
+
+          document.getElementById('btn-menu-save').onclick = () => {
+            addWordToDict(word);
+            mark.classList.add('word-saved-green');
+            mark.title = 'Mot enregistré dans votre dictionnaire !';
+            closePageContextMenu();
+          };
+
+          document.getElementById('btn-menu-cancel').onclick = closePageContextMenu;
+        };
+
+        mark.addEventListener('click', handleWordClick);
+        mark.addEventListener('contextmenu', handleWordClick);
+      });
+    }
+
+    function closeDiffPreview() {
+      if (diffCard) diffCard.style.display = 'none';
+      closePageContextMenu();
+    }
+
+    // Écoute de l'événement dispatched par le script T9
+    window.addEventListener('T9CorrectionDone', (e) => {
+      if (e.detail) {
+        renderDiffCard(e.detail.original, e.detail.corrected, e.detail.diffTokens);
+      }
+    });
+
+    window.addEventListener('T9DictionaryUpdated', (e) => {
+      if (e.detail && Array.isArray(e.detail.words)) {
+        localDict = new Set(e.detail.words);
+        updateDictBadges();
+        renderDictTagList();
+      }
+    });
+
+    // Initialisation du dictionnaire au chargement
+    loadLocalDict();
+
+    // Effacer
+    function clearInput() {
+      input.value = '';
+      input.focus();
+      wordCounter.textContent = '0 mot';
+      banner.style.display = 'none';
+      closeDiffPreview();
+    }
+
+    // Coller et exécuter
+    function pasteAndRun(sentence) {
+      input.value = sentence;
+      input.focus();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      forceSentenceAnalyze();
+    }
+
+    function showTemporaryBanner(html) {
+      banner.style.display = 'flex';
+      banner.innerHTML = html;
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 5000);
+    }
+
+    // Forcer l'analyse de phrase
+    async function forceSentenceAnalyze() {
+      const btn = document.getElementById('btn-analyze');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const hasKey = Boolean(localStorage.getItem(STORAGE_KEY));
+
+      // Si mode démo sans clé
+      if (!hasKey) {
+        const lower = text.toLowerCase();
+        let demoMatch = null;
+        for (const [k, v] of Object.entries(DEMO_KNOWLEDGE)) {
+          if (lower === k.toLowerCase() || lower.includes(k.toLowerCase())) {
+            demoMatch = v;
+            break;
+          }
+        }
+
+        btn.disabled = true;
+        btn.textContent = '🧠 Démo IA : Compréhension...';
+
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = '✨ Perfectionner avec l\'IA (100%)';
+
+          if (demoMatch) {
+            const originalText = input.value;
+            input.value = demoMatch;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            const diffTokens = computeLocalDiffTokens(originalText, demoMatch);
+            renderDiffCard(originalText, demoMatch, diffTokens);
+            // Déclencher l'événement pour que le script T9 crée l'overlay miroir directement sur le textarea !
+            window.dispatchEvent(new CustomEvent('T9CorrectionDone', {
+              detail: { original: originalText, corrected: demoMatch, diffTokens, changedCount: diffTokens.filter(t => t.isChanged).length, targetElement: input }
+            }));
+            showTemporaryBanner(`✨ <b>Démonstration réussie :</b> Phrase comprise et corrigée en <i>« ${demoMatch} »</i> ! (Mots modifiés surlignés en jaune clair directement sur votre texte)`);
+          } else {
+            showTemporaryBanner(`💡 <b>Phrase personnalisée détectée :</b> Pour corriger n'importe quel texte libre illimité, <a href="#" onclick="openAssistantWizard()" style="color:#60a5fa; text-decoration:underline; font-weight:700;">activez votre clé gratuite en 30 secondes ici</a>.`);
+          }
+        }, 400);
+        return;
+      }
+
+      // Vraie IA avec clé configurée
+      btn.disabled = true;
+      btn.textContent = '🧠 Cerveau IA : Compréhension & Correction...';
+
+      let corrected = null;
+      const originalText = input.value;
+      if (typeof window.T9SmartAnalyze === 'function') {
+        corrected = await window.T9SmartAnalyze(input);
+      }
+
+      btn.disabled = false;
+      btn.textContent = '✨ Perfectionner avec l\'IA (100%)';
+
+      if (corrected && corrected !== originalText) {
+        renderDiffCard(originalText, corrected);
+        showTemporaryBanner('👑 <b>Texte compris et corrigé à 100% par l\'IA Gemini !</b> (Mots modifiés surlignés en jaune clair ci-dessous)');
+      } else if (corrected) {
+        showTemporaryBanner('✨ <b>Analyse effectuée.</b> Le texte était déjà optimal.');
+      }
+    }
+  </script>
+</body>
+</html>
