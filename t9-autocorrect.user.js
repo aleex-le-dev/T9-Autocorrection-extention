@@ -1107,14 +1107,20 @@ ${text}`;
   /**
    * Associe le compte Google pour la sauvegarde cloud automatique
    */
-  window.T9ConnectGoogleAccount = function (email) {
+  window.T9ConnectGoogleAccount = function (email, name = '', photo = '') {
     if (!email) return false;
     googleAccountEmail = String(email).trim().toLowerCase();
+    const userName = name || (email.includes('@') ? email.split('@')[0] : email);
+    
     if (typeof GM_setValue !== 'undefined') {
       GM_setValue(GOOGLE_ACCOUNT_STORAGE, googleAccountEmail);
+      if (userName) GM_setValue('t9_google_user_name', userName);
+      if (photo) GM_setValue('t9_google_user_photo', photo);
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(GOOGLE_ACCOUNT_STORAGE, googleAccountEmail);
+      if (userName) localStorage.setItem('t9_google_user_name', userName);
+      if (photo) localStorage.setItem('t9_google_user_photo', photo);
     }
     showToast(`☁️ Compte Google lié : ${googleAccountEmail} (Sauvegarde active)`, '#38bdf8');
     return true;
@@ -1126,6 +1132,81 @@ ${text}`;
   window.T9GetGoogleAccount = function () {
     return googleAccountEmail;
   };
+
+  /**
+   * Retourne le profil Google complet
+   */
+  window.T9GetGoogleProfile = function () {
+    let name = '';
+    let email = googleAccountEmail;
+    let photo = '';
+    if (typeof GM_getValue !== 'undefined') {
+      name = GM_getValue('t9_google_user_name', '');
+      photo = GM_getValue('t9_google_user_photo', '');
+    } else if (typeof localStorage !== 'undefined') {
+      name = localStorage.getItem('t9_google_user_name') || '';
+      photo = localStorage.getItem('t9_google_user_photo') || '';
+    }
+    return { name, email, photo };
+  };
+
+  /**
+   * Détection automatique de profil quand l'utilisateur navigue sur un service Google
+   */
+  function autoDetectGoogleAccountOnGoogleDomains() {
+    if (typeof location === 'undefined' || !location.hostname || !location.hostname.endsWith('google.com')) return;
+    
+    function scan() {
+      try {
+        const accountEl = document.querySelector('a[aria-label*="Compte Google"], a[aria-label*="Google Account"], button[aria-label*="Compte Google"], button[aria-label*="Google Account"], button[aria-label*="@"], [data-ogsr-up] a, a[href*="SignOutOptions"]');
+        const imgEl = document.querySelector('img[src*="googleusercontent.com"], img.gb_m, img.gb_k, [data-ogsr-up] img, button[aria-label*="@"] img, img[alt*="photo de profil" i], img[alt*="profile picture" i]');
+        
+        let foundPhoto = imgEl && imgEl.src ? imgEl.src : '';
+        let foundEmail = '';
+        let foundName = '';
+
+        if (accountEl) {
+          const label = accountEl.getAttribute('aria-label') || accountEl.innerText || '';
+          const emailMatch = label.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+          if (emailMatch) foundEmail = emailMatch[1];
+          const nameMatch = label.match(/(?:Compte Google|Google Account)\s*:\s*([^(\n]+)/i);
+          if (nameMatch) foundName = nameMatch[1].trim();
+        }
+
+        if (!foundEmail) {
+          const emailEl = document.querySelector('[data-email], [data-identifier]');
+          if (emailEl) foundEmail = emailEl.getAttribute('data-email') || emailEl.getAttribute('data-identifier');
+        }
+
+        if (foundEmail || foundName || foundPhoto) {
+          if (typeof GM_setValue !== 'undefined') {
+            if (foundEmail) GM_setValue(GOOGLE_ACCOUNT_STORAGE, foundEmail);
+            if (foundName) GM_setValue('t9_google_user_name', foundName);
+            if (foundPhoto) GM_setValue('t9_google_user_photo', foundPhoto);
+          }
+          if (typeof localStorage !== 'undefined') {
+            if (foundEmail) localStorage.setItem(GOOGLE_ACCOUNT_STORAGE, foundEmail);
+            if (foundName) localStorage.setItem('t9_google_user_name', foundName);
+            if (foundPhoto) localStorage.setItem('t9_google_user_photo', foundPhoto);
+          }
+        }
+      } catch (e) {}
+    }
+
+    scan();
+    setTimeout(scan, 1000);
+    setTimeout(scan, 2500);
+    setTimeout(scan, 5000);
+
+    // Observer si le header Google se charge en asynchrone
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      const observer = new MutationObserver(() => scan());
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 10000);
+    }
+  }
+
+  autoDetectGoogleAccountOnGoogleDomains();
 
   // Enregistrement des menus Tampermonkey
   if (typeof GM_registerMenuCommand !== 'undefined') {
