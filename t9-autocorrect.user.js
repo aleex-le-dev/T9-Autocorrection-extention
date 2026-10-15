@@ -34,7 +34,7 @@
     enabled: true,
     showNotification: true,
     autoAnalyzeOnPause: true, // Auto-correction intelligente après pause de frappe
-    pauseDelayMs: 900,        // Délai de pause en millisecondes
+    pauseDelayMs: 1000,       // Délai de pause en millisecondes (exactement 1 seconde)
     geminiApiKey: '',
     activeModel: ''
   };
@@ -42,6 +42,7 @@
   try {
     if (typeof GM_getValue !== 'undefined') {
       config = Object.assign(config, GM_getValue(CONFIG_KEY, config));
+      config.pauseDelayMs = 1000;
       config.geminiApiKey = GM_getValue(GEMINI_KEY_STORAGE, config.geminiApiKey || '');
       config.activeModel = GM_getValue(GEMINI_MODEL_STORAGE, config.activeModel || '');
       googleAccountEmail = GM_getValue(GOOGLE_ACCOUNT_STORAGE, '');
@@ -63,11 +64,31 @@
     try {
       if (typeof GM_setValue !== 'undefined') GM_setValue(CUSTOM_DICT_STORAGE, arr);
       if (typeof localStorage !== 'undefined') localStorage.setItem(CUSTOM_DICT_STORAGE, JSON.stringify(arr));
+
+      // Synchroniser immédiatement dans le coffre du compte Google actif
+      if (googleAccountEmail) {
+        const vaultKey = `t9_google_vault_${googleAccountEmail}`;
+        let vault = {};
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(vaultKey);
+          if (raw) try { vault = JSON.parse(raw); } catch (e) {}
+          vault.email = googleAccountEmail;
+          vault.dictionary = arr;
+          vault.apiKey = config.geminiApiKey || vault.apiKey || '';
+          vault.model = config.activeModel || vault.model || 'gemini-2.0-flash';
+          vault.lastSync = new Date().toISOString();
+          localStorage.setItem(vaultKey, JSON.stringify(vault));
+        }
+        if (typeof GM_setValue !== 'undefined') {
+          GM_setValue(vaultKey, vault);
+        }
+      }
     } catch (e) {}
   }
 
   let debounceTimer = null;
   let isAnalyzing = false;
+  let isSelfUpdating = false;
   let lastAnalyzedText = '';
 
   // Modèles de fallback par ordre de priorité
@@ -156,7 +177,10 @@
     let customWordsInstruction = '';
     if (customDictionary.size > 0) {
       const wordsList = Array.from(customDictionary).join(', ');
-      customWordsInstruction = `\n5. DICTIONNAIRE PERSONNEL DE L'UTILISATEUR (NE JAMAIS MODIFIER NI CORRIGER CES MOTS, ILS SONT PARFAITEMENT EXACTS) :\n   [ ${wordsList} ]\n`;
+      customWordsInstruction = `\n5. RÈGLE ABSOLUE POUR LES MOTS DU DICTIONNAIRE PERSONNEL :
+   Les mots et expressions suivants appartiennent au dictionnaire personnel de l'auteur :
+   [ ${wordsList} ]
+   Tu as l'interdiction FORMELLE de les modifier, de les corriger, de les remplacer ou d'altérer leur orthographe, leur casse ou leurs particularités. Conserve-les STRICTEMENT tels quels dans ta réponse finale.\n`;
     }
 
     return `Tu es le meilleur moteur de compréhension et de correction de texte français au monde.
@@ -335,6 +359,7 @@ ${text}`;
       if (corrected && corrected !== original) {
         lastAnalyzedText = corrected;
 
+        isSelfUpdating = true;
         if (isInput) {
           const start = targetElement.selectionStart;
           const end = targetElement.selectionEnd;
@@ -349,6 +374,7 @@ ${text}`;
           targetElement.innerText = corrected;
           targetElement.dispatchEvent(new Event('input', { bubbles: true }));
         }
+        setTimeout(() => { isSelfUpdating = false; }, 100);
 
         const diffTokens = computeDiffTokens(original, corrected);
         const changedCount = diffTokens.filter(t => t.isChanged).length;
@@ -393,8 +419,9 @@ ${text}`;
   // 4. ÉCOUTEURS D'ÉVÉNEMENTS & RACCOURCIS
   // =========================================================================
 
-  // Auto-correction sur pause naturelle de frappe
+  // Auto-correction sur pause naturelle de frappe (dès au moins 1 seconde d'inactivité)
   document.addEventListener('input', function (e) {
+    if (isSelfUpdating) return;
     if (!config.enabled || !config.autoAnalyzeOnPause) return;
     const target = e.target;
     if (!target) return;
@@ -406,11 +433,11 @@ ${text}`;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const val = target.value !== undefined ? target.value : target.innerText;
-      // Déclencher après une pause si le texte se termine par un espace, de la ponctuation ou contient au moins 2 mots
-      if (val && val.trim().length >= 6 && /\s$/.test(val)) {
-        performAIAnalysis(target, true);
+      // Déclencher après au moins 1 seconde de pause d'inactivité dès qu'il y a du texte non corrigé
+      if (val && val.trim().length >= 2 && val.trim() !== lastAnalyzedText.trim()) {
+        performAIAnalysis(target, false);
       }
-    }, config.pauseDelayMs);
+    }, config.pauseDelayMs || 1000);
   }, true);
 
   // Raccourcis clavier :
@@ -489,27 +516,87 @@ ${text}`;
   // =========================================================================
 
   /**
-   * Analyse et compare les mots originaux et corrigés pour identifier
-   * avec précision les mots qui ont été transformés par l'IA.
+   * Analyse et aligne avec précision les mots originaux et corrigés pour identifier
+   * chaque mot transformé par l'IA et mémoriser sa forme originale exacte.
    */
   function computeDiffTokens(original, corrected) {
     if (!original || !corrected) return [];
-    const tokenize = (str) => str.match(/[\p{L}\p{N}'’]+|[^\p{L}\p{N}'’\s]+|\s+/gu) || [];
+    const isWord = t => /^[\p{L}\p{N}'’]+$/u.test(t);
+    const tokenize = str => str.match(/[\p{L}\p{N}'’]+|[^\p{L}\p{N}'’\s]+|\s+/gu) || [];
+
     const origTokens = tokenize(original);
     const corrTokens = tokenize(corrected);
 
-    const origWordsLower = new Set(
-      origTokens
-        .map(t => t.trim().toLowerCase())
-        .filter(t => /^[\p{L}\p{N}'’]+$/u.test(t))
-    );
+    const origWords = origTokens.filter(isWord);
+    const corrWords = corrTokens.filter(isWord);
 
+    const n = origWords.length;
+    const m = corrWords.length;
+
+    // Alignement de séquence par sous-chaîne commune la plus longue (LCS)
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = 1; i <= n; i++) {
+      for (let j = 1; j <= m; j++) {
+        if (origWords[i - 1].toLowerCase() === corrWords[j - 1].toLowerCase()) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    let i = n, j = m;
+    const matchedPairs = [];
+    while (i > 0 && j > 0) {
+      if (origWords[i - 1].toLowerCase() === corrWords[j - 1].toLowerCase()) {
+        matchedPairs.unshift([i - 1, j - 1]);
+        i--;
+        j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
+    const corrToOrig = new Map();
+    let lastOrig = 0;
+    let lastCorr = 0;
+
+    function mapRange(origStart, origEnd, corrStart, corrEnd) {
+      const oLen = origEnd - origStart;
+      const cLen = corrEnd - corrStart;
+      if (cLen <= 0 || oLen <= 0) return;
+      for (let c = corrStart; c < corrEnd; c++) {
+        const relIdx = c - corrStart;
+        const oIdx = oLen === cLen ? (origStart + relIdx) : Math.min(origStart + relIdx, origEnd - 1);
+        corrToOrig.set(c, origWords[oIdx]);
+      }
+    }
+
+    for (const [oIdx, cIdx] of matchedPairs) {
+      mapRange(lastOrig, oIdx, lastCorr, cIdx);
+      corrToOrig.set(cIdx, origWords[oIdx]);
+      lastOrig = oIdx + 1;
+      lastCorr = cIdx + 1;
+    }
+    mapRange(lastOrig, n, lastCorr, m);
+
+    let corrWordIdx = 0;
     return corrTokens.map(token => {
-      const isWord = /^[\p{L}\p{N}'’]+$/u.test(token);
-      if (!isWord) return { text: token, isChanged: false, isWord: false };
-      const lower = token.trim().toLowerCase();
-      const isChanged = !origWordsLower.has(lower);
-      return { text: token, isChanged, isWord: true };
+      if (!isWord(token)) {
+        return { text: token, origWord: '', isChanged: false, isWord: false };
+      }
+      const idx = corrWordIdx++;
+      const orig = corrToOrig.get(idx);
+      const isUnchanged = orig && orig.toLowerCase() === token.toLowerCase();
+      const isChanged = !isUnchanged;
+      return {
+        text: token,
+        origWord: orig || '',
+        isChanged,
+        isWord: true
+      };
     });
   }
 
@@ -544,19 +631,15 @@ ${text}`;
     const text = inputEl.value || '';
     if (!text) return '';
 
-    // Si une sélection existe, l'utiliser en priorité
     if (typeof inputEl.selectionStart === 'number' && typeof inputEl.selectionEnd === 'number' && inputEl.selectionEnd > inputEl.selectionStart) {
       const selected = text.substring(inputEl.selectionStart, inputEl.selectionEnd).trim();
       if (selected && !/\s/.test(selected)) return selected;
     }
 
     let pos = typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : 0;
-
-    // Trouver les limites du mot autour de pos
     let start = Math.min(pos, text.length);
     let end = Math.min(pos, text.length);
 
-    // Ajuster si le curseur est juste après un mot
     if (start > 0 && (start === text.length || /[\s,;.!?:()]/u.test(text[start]))) {
       if (!/[\s,;.!?:()]/u.test(text[start - 1])) {
         start--;
@@ -600,65 +683,151 @@ ${text}`;
   }
 
   /**
-   * Affiche le menu contextuel flottant T9 n'importe où sur la page web
+   * Affiche le menu contextuel flottant T9 avec options de rétablissement et d'ajout au dictionnaire
    */
-  function showFloatingContextMenu(x, y, word, targetElement) {
+  function showFloatingContextMenu(x, y, word, targetElement, origWord = '') {
     if (!word) return;
     closeContextMenu();
 
     const cleanWord = String(word).trim();
-    const isSaved = customDictionary.has(cleanWord.toLowerCase());
+    const cleanOrig = String(origWord || '').trim();
+    const hasDiff = Boolean(cleanOrig && cleanOrig.toLowerCase() !== cleanWord.toLowerCase());
+    const isSaved = customDictionary.has((cleanOrig || cleanWord).toLowerCase());
 
     const menu = document.createElement('div');
     menu.id = 't9-context-menu';
     menu.style.cssText = `
       position: fixed;
-      top: ${Math.min(window.innerHeight - 150, Math.max(10, y - 10))}px;
-      left: ${Math.min(window.innerWidth - 280, Math.max(10, x - 10))}px;
+      top: ${Math.min(window.innerHeight - 260, Math.max(10, y - 10))}px;
+      left: ${Math.min(window.innerWidth - 330, Math.max(10, x - 10))}px;
       background: #0f172a;
       border: 1.5px solid #38bdf8;
-      border-radius: 12px;
-      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.75), 0 0 15px rgba(56, 189, 248, 0.25);
-      padding: 8px;
+      border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.3);
+      padding: 10px;
       z-index: 2147483647;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      min-width: 260px;
+      gap: 7px;
+      min-width: 300px;
+      max-width: 360px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       animation: t9FadeInUp 0.18s ease-out;
     `;
 
-    menu.innerHTML = `
-      <div style="font-size: 11px; color: #94a3b8; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
-        <span>Mot : <b style="color: #fef08a;">« ${escapeHtml(cleanWord)} »</b></span>
-        <span style="font-size: 10px; color: #38bdf8; font-weight: 700;">T9 IA</span>
-      </div>
-      <button id="t9-btn-save-word" style="
-        background: ${isSaved ? '#059669' : '#0284c7'};
-        color: #ffffff;
-        border: none;
-        padding: 8px 12px;
-        border-radius: 7px;
-        font-size: 12.5px;
-        font-weight: 700;
-        cursor: pointer;
-        text-align: left;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: background 0.15s ease;
-      ">
-        <span>💾</span>
-        <span>${isSaved ? 'Déjà dans mon dictionnaire' : `Enregistrer "${escapeHtml(cleanWord)}" dans mon dictionnaire`}</span>
-      </button>
+    let contentHtml = '';
+
+    if (hasDiff) {
+      contentHtml = `
+        <div style="font-size: 11px; color: #94a3b8; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #cbd5e1; font-weight: 700;">🔍 Mot transformé par l'IA</span>
+            <span style="font-size: 10px; color: #f59e0b; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); padding: 1px 6px; border-radius: 999px; font-weight: 700;">Modifié</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 3px; font-size: 12px;">
+            <div>
+              <span style="color: #94a3b8;">Votre frappe :</span> <b style="color: #38bdf8; font-size: 13px;">« ${escapeHtml(cleanOrig)} »</b>
+            </div>
+            <div>
+              <span style="color: #94a3b8;">➔</span> <b style="color: #fef08a; font-size: 13px;">« ${escapeHtml(cleanWord)} »</b>
+            </div>
+          </div>
+        </div>
+
+        <button id="t9-btn-revert-and-dict" style="
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: #ffffff;
+          border: none;
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-size: 12.5px;
+          font-weight: 800;
+          cursor: pointer;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4);
+          transition: all 0.15s ease;
+        ">
+          <span style="font-size: 17px;">↩️</span>
+          <div style="display: flex; flex-direction: column;">
+            <span>Revenir à « ${escapeHtml(cleanOrig)} » et l'ajouter au dictionnaire</span>
+            <span style="font-size: 10.5px; opacity: 0.92; font-weight: 500;">Immunise ce mot : l'IA ne le retransformera plus jamais !</span>
+          </div>
+        </button>
+
+        <button id="t9-btn-revert-only" style="
+          background: rgba(255,255,255,0.06);
+          color: #cbd5e1;
+          border: 1px solid rgba(255,255,255,0.12);
+          padding: 6px 12px;
+          border-radius: 7px;
+          font-size: 11.5px;
+          font-weight: 600;
+          cursor: pointer;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        ">
+          <span>↩️</span>
+          <span>Revenir à « ${escapeHtml(cleanOrig)} » sans ajouter au dictionnaire</span>
+        </button>
+
+        <button id="t9-btn-save-corrected" style="
+          background: rgba(255,255,255,0.06);
+          color: #cbd5e1;
+          border: 1px solid rgba(255,255,255,0.12);
+          padding: 6px 12px;
+          border-radius: 7px;
+          font-size: 11.5px;
+          font-weight: 600;
+          cursor: pointer;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        ">
+          <span>💾</span>
+          <span>Conserver et enregistrer « ${escapeHtml(cleanWord)} » au dictionnaire</span>
+        </button>
+      `;
+    } else {
+      contentHtml = `
+        <div style="font-size: 11px; color: #94a3b8; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+          <span>Mot : <b style="color: #fef08a;">« ${escapeHtml(cleanWord)} »</b></span>
+          <span style="font-size: 10px; color: #38bdf8; font-weight: 700;">T9 IA</span>
+        </div>
+        <button id="t9-btn-save-word" style="
+          background: ${isSaved ? '#059669' : '#0284c7'};
+          color: #ffffff;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 7px;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: background 0.15s ease;
+        ">
+          <span>💾</span>
+          <span>${isSaved ? 'Déjà dans mon dictionnaire' : `Enregistrer "${escapeHtml(cleanWord)}" dans mon dictionnaire`}</span>
+        </button>
+      `;
+    }
+
+    contentHtml += `
       <button id="t9-btn-open-dict" style="
-        background: rgba(255,255,255,0.06);
-        color: #cbd5e1;
-        border: 1px solid rgba(255,255,255,0.1);
-        padding: 6px 10px;
+        background: rgba(255,255,255,0.04);
+        color: #94a3b8;
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 5px 10px;
         border-radius: 6px;
-        font-size: 11.5px;
+        font-size: 11px;
         cursor: pointer;
         text-align: left;
         display: flex;
@@ -672,7 +841,7 @@ ${text}`;
         background: transparent;
         color: #64748b;
         border: none;
-        padding: 4px 10px;
+        padding: 3px 10px;
         font-size: 11px;
         cursor: pointer;
         text-align: left;
@@ -681,18 +850,34 @@ ${text}`;
       </button>
     `;
 
+    menu.innerHTML = contentHtml;
     document.body.appendChild(menu);
     activeContextMenu = menu;
 
-    document.getElementById('t9-btn-save-word').onclick = () => {
-      window.T9AddCustomWord(cleanWord);
-      // Mettre à jour visuellement les surlignages de ce mot sur la page
-      document.querySelectorAll(`[data-t9-word="${cleanWord.toLowerCase()}"]`).forEach(el => {
-        el.style.background = 'rgba(134, 239, 172, 0.75)';
-        el.style.borderBottomColor = '#16a34a';
-      });
-      closeContextMenu();
-    };
+    if (hasDiff) {
+      document.getElementById('t9-btn-revert-and-dict').onclick = () => {
+        revertWordAndProtectInDict(targetElement, cleanWord, cleanOrig);
+      };
+      document.getElementById('t9-btn-revert-only').onclick = () => {
+        revertWordOnly(targetElement, cleanWord, cleanOrig);
+      };
+      document.getElementById('t9-btn-save-corrected').onclick = () => {
+        window.T9AddCustomWord(cleanWord);
+        closeContextMenu();
+      };
+    } else {
+      const btnSave = document.getElementById('t9-btn-save-word');
+      if (btnSave) {
+        btnSave.onclick = () => {
+          window.T9AddCustomWord(cleanWord);
+          document.querySelectorAll(`[data-t9-word="${cleanWord.toLowerCase()}"]`).forEach(el => {
+            el.style.background = 'rgba(134, 239, 172, 0.75)';
+            el.style.borderBottomColor = '#16a34a';
+          });
+          closeContextMenu();
+        };
+      }
+    }
 
     document.getElementById('t9-btn-open-dict').onclick = () => {
       closeContextMenu();
@@ -705,6 +890,67 @@ ${text}`;
     };
 
     document.getElementById('t9-btn-close-menu').onclick = closeContextMenu;
+  }
+
+  /**
+   * Rétablit un mot corrigé par sa version d'origine dans le champ cible
+   * et ajoute le mot d'origine au dictionnaire personnel pour immuniser sa frappe.
+   */
+  function revertWordAndProtectInDict(targetElement, corrWord, origWord) {
+    if (!origWord) return;
+
+    // 1. Ajouter le mot d'origine au dictionnaire personnel
+    window.T9AddCustomWord(origWord);
+
+    // 2. Remplacer dans le champ de saisie
+    replaceWordInTarget(targetElement, corrWord, origWord);
+
+    closeContextMenu();
+    if (diffReviewCard) {
+      diffReviewCard.style.display = 'none';
+    }
+
+    showToast(`🎉 Mot « ${origWord} » rétabli et protégé dans votre dictionnaire ! L'IA ne le modifiera plus jamais.`, '#10b981');
+  }
+
+  /**
+   * Rétablit un mot corrigé sans l'ajouter au dictionnaire
+   */
+  function revertWordOnly(targetElement, corrWord, origWord) {
+    if (!origWord) return;
+    replaceWordInTarget(targetElement, corrWord, origWord);
+    closeContextMenu();
+    showToast(`↩️ Mot rétabli en « ${origWord} ».`, '#64748b');
+  }
+
+  /**
+   * Remplace un mot corrigé par son mot d'origine dans le champ actif
+   */
+  function replaceWordInTarget(targetElement, corrWord, origWord) {
+    if (!targetElement) return;
+    isSelfUpdating = true;
+    const isInput = (targetElement.tagName === 'INPUT' || targetElement.tagName === 'TEXTAREA');
+
+    if (isInput) {
+      const text = targetElement.value;
+      const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp('(^|\\P{L})' + escapeRegex(corrWord) + '(\\P{L}|$)', 'u');
+      const newText = text.replace(regex, '$1' + origWord + '$2');
+      targetElement.value = newText;
+      lastAnalyzedText = newText;
+      targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (targetElement.isContentEditable) {
+      const text = targetElement.innerText;
+      const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp('(^|\\P{L})' + escapeRegex(corrWord) + '(\\P{L}|$)', 'u');
+      const newText = text.replace(regex, '$1' + origWord + '$2');
+      targetElement.innerText = newText;
+      lastAnalyzedText = newText;
+      targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    setTimeout(() => { isSelfUpdating = false; }, 120);
+    removeInputHighlightOverlay(targetElement);
   }
 
   // =========================================================================
@@ -737,19 +983,23 @@ ${text}`;
     let html = '';
     diffTokens.forEach(t => {
       if (t.isChanged) {
-        const isSaved = customDictionary.has(t.text.toLowerCase());
-        const bg = isSaved ? 'rgba(134, 239, 172, 0.75)' : 'rgba(254, 240, 138, 0.75)';
-        const border = isSaved ? '#16a34a' : '#ca8a04';
-        html += `<mark class="t9-field-highlight" data-t9-word="${escapeHtml(t.text.toLowerCase())}" style="
-          background: ${bg} !important;
-          color: transparent !important;
-          border-bottom: 2.5px solid ${border} !important;
-          border-radius: 3px !important;
-          cursor: pointer !important;
-          pointer-events: auto !important;
-          padding: 0 1px !important;
-          user-select: none !important;
-        " title="Clic droit pour enregistrer '${escapeHtml(t.text)}' dans votre dictionnaire">${escapeHtml(t.text)}</mark>`;
+        const isSaved = customDictionary.has((t.origWord || t.text).toLowerCase());
+        const bg = isSaved ? 'rgba(74, 222, 128, 0.22)' : 'rgba(250, 204, 21, 0.22)';
+        const border = isSaved ? '#22c55e' : '#eab308';
+        const titleText = t.origWord ? `« ${t.origWord} » ➔ « ${t.text} » (Clic pour rétablir & dictionnaire)` : `Mot transformé par l'IA (Clic pour options)`;
+        html += `<mark class="t9-field-highlight"
+          data-t9-word="${escapeHtml(t.text)}"
+          data-t9-orig="${escapeHtml(t.origWord || '')}"
+          style="
+            background: ${bg} !important;
+            color: transparent !important;
+            border-bottom: 2px solid ${border} !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            pointer-events: auto !important;
+            padding: 0 2px !important;
+            user-select: none !important;
+          " title="${escapeHtml(titleText)}">${escapeHtml(t.text)}</mark>`;
       } else {
         html += escapeHtml(t.text);
       }
@@ -809,13 +1059,14 @@ ${text}`;
     };
     inputEl.addEventListener('scroll', onScroll, { passive: true });
 
-    // Interaction clic & clic droit sur les marques jaunes
+    // Interaction clic gauche & clic droit sur les marques jaunes
     overlay.querySelectorAll('.t9-field-highlight').forEach(mark => {
       const handleAction = (e) => {
         e.preventDefault();
         e.stopPropagation();
         const word = mark.getAttribute('data-t9-word');
-        showFloatingContextMenu(e.clientX, e.clientY, word, inputEl);
+        const origWord = mark.getAttribute('data-t9-orig') || '';
+        showFloatingContextMenu(e.clientX, e.clientY, word, inputEl, origWord);
       };
       mark.addEventListener('click', handleAction);
       mark.addEventListener('contextmenu', handleAction);
@@ -838,23 +1089,39 @@ ${text}`;
     let html = '';
     diffTokens.forEach(t => {
       if (t.isChanged) {
-        const isSaved = customDictionary.has(t.text.toLowerCase());
-        const bg = isSaved ? '#86efac' : '#fef08a';
-        const border = isSaved ? '#16a34a' : '#ca8a04';
-        html += `<mark class="t9-contenteditable-highlight" data-t9-word="${escapeHtml(t.text.toLowerCase())}" style="
-          background: ${bg} !important;
-          color: #1e293b !important;
-          border-bottom: 2px solid ${border} !important;
-          border-radius: 3px !important;
-          padding: 1px 4px !important;
-          font-weight: 600 !important;
-          cursor: pointer !important;
-        " title="Clic droit pour enregistrer dans mon dictionnaire">${escapeHtml(t.text)}</mark>`;
+        const isSaved = customDictionary.has((t.origWord || t.text).toLowerCase());
+        const bg = isSaved ? 'rgba(74, 222, 128, 0.25)' : 'rgba(250, 204, 21, 0.25)';
+        const border = isSaved ? '#22c55e' : '#eab308';
+        const titleText = t.origWord ? `« ${t.origWord} » ➔ « ${t.text} » (Clic pour rétablir & dictionnaire)` : `Mot transformé par l'IA`;
+        html += `<mark class="t9-contenteditable-highlight"
+          data-t9-word="${escapeHtml(t.text)}"
+          data-t9-orig="${escapeHtml(t.origWord || '')}"
+          style="
+            background: ${bg} !important;
+            color: #ffffff !important;
+            border-bottom: 2px solid ${border} !important;
+            border-radius: 4px !important;
+            padding: 1px 4px !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+          " title="${escapeHtml(titleText)}">${escapeHtml(t.text)}</mark>`;
       } else {
         html += escapeHtml(t.text);
       }
     });
     el.innerHTML = html;
+
+    el.querySelectorAll('.t9-contenteditable-highlight').forEach(mark => {
+      const handleAction = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const word = mark.getAttribute('data-t9-word');
+        const origWord = mark.getAttribute('data-t9-orig') || '';
+        showFloatingContextMenu(e.clientX, e.clientY, word, el, origWord);
+      };
+      mark.addEventListener('click', handleAction);
+      mark.addEventListener('contextmenu', handleAction);
+    });
   }
 
   // =========================================================================
@@ -869,7 +1136,8 @@ ${text}`;
       e.preventDefault();
       e.stopPropagation();
       const word = target.getAttribute('data-t9-word') || target.getAttribute('data-word') || target.innerText;
-      showFloatingContextMenu(e.clientX, e.clientY, word, target);
+      const origWord = target.getAttribute('data-t9-orig') || '';
+      showFloatingContextMenu(e.clientX, e.clientY, word, target, origWord);
       return;
     }
 
@@ -878,7 +1146,6 @@ ${text}`;
     if (isInput) {
       const word = getWordAtCursor(target, e);
       if (word && word.length >= 2) {
-        // Si l'utilisateur clique droit sur un mot de son texte, on propose notre menu T9
         e.preventDefault();
         showFloatingContextMenu(e.clientX, e.clientY, word, target);
         return;
@@ -896,7 +1163,7 @@ ${text}`;
     }
   }, true);
 
-  // Bannière d'aide globale discrète
+  // Bannière de révision des modifications avec boutons de rétablissement rapide
   let diffReviewCard = null;
 
   function showDiffReviewBanner(targetElement, original, corrected, diffTokens) {
@@ -911,15 +1178,15 @@ ${text}`;
 
     diffReviewCard.style.cssText = `
       position: fixed;
-      bottom: 74px;
+      bottom: 24px;
       right: 24px;
-      max-width: 440px;
+      max-width: 480px;
       width: calc(100vw - 48px);
       background: #0f172a;
-      border: 1px solid rgba(254, 240, 138, 0.4);
-      border-radius: 12px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65), 0 0 20px rgba(254, 240, 138, 0.15);
-      padding: 12px 16px;
+      border: 1.5px solid rgba(250, 204, 21, 0.45);
+      border-radius: 14px;
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.75), 0 0 25px rgba(250, 204, 21, 0.2);
+      padding: 14px 18px;
       z-index: 2147483646;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
@@ -927,20 +1194,52 @@ ${text}`;
       animation: t9FadeInUp 0.25s ease-out;
     `;
 
+    const chipsHtml = changedWords.map(t => {
+      const orig = t.origWord || t.text;
+      const corr = t.text;
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span style="color: #94a3b8; text-decoration: line-through;">« ${escapeHtml(orig)} »</span>
+            <span style="color: #f59e0b; font-weight: 700;">➔</span>
+            <span style="color: #fef08a; font-weight: 700;">« ${escapeHtml(corr)} »</span>
+          </div>
+          <button class="t9-banner-revert-btn" data-corr="${escapeHtml(corr)}" data-orig="${escapeHtml(orig)}" style="
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #ffffff;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+          ">
+            <span>↩️</span> <span>Rétablir & Dico</span>
+          </button>
+        </div>
+      `;
+    }).join('');
+
     diffReviewCard.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
-        <span style="font-weight: 700; color: #fef08a; display: flex; align-items: center; gap: 6px;">
-          <span>🔍</span> ${changedWords.length} mot(s) corrigé(s) (surlignés en jaune sur votre texte)
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+        <span style="font-weight: 700; color: #fef08a; display: flex; align-items: center; gap: 6px; font-size: 13.5px;">
+          <span>🔍</span> ${changedWords.length} mot(s) corrigé(s) (surlignés en jaune)
         </span>
         <button id="t9-close-diff-btn" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; line-height: 1;">&times;</button>
       </div>
-      <div style="font-size: 11.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 8px;">
-        👉 <b>Clic droit direct</b> sur un mot jaune pour l'enregistrer dans votre dictionnaire (l'IA ne le modifiera plus jamais).
+      <div style="max-height: 180px; overflow-y: auto; margin-bottom: 10px; padding-right: 4px;">
+        ${chipsHtml}
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 11px; color: #94a3b8;">Dictionnaire : <b>${customDictionary.size} mot(s)</b></span>
-        <button id="t9-open-dict-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #38bdf8; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-weight: 600;">
-          📚 Gérer / Sauvegarder
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+        <span>💡 <i>Cliquez directement sur un mot jaune pour le gérer</i></span>
+        <button id="t9-open-dict-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #38bdf8; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: 600;">
+          📚 Dictionnaire (${customDictionary.size})
         </button>
       </div>
     `;
@@ -953,18 +1252,23 @@ ${text}`;
     document.getElementById('t9-open-dict-btn').onclick = () => {
       if (typeof window.T9OpenDictionaryModal === 'function') {
         window.T9OpenDictionaryModal();
-      } else {
-        const words = Array.from(customDictionary);
-        alert(`📚 Votre Dictionnaire Personnel contient ${words.length} mot(s) :\n\n` + (words.length ? words.join(', ') : '(Aucun mot pour l\'instant)'));
       }
     };
+
+    diffReviewCard.querySelectorAll('.t9-banner-revert-btn').forEach(btn => {
+      btn.onclick = () => {
+        const corr = btn.getAttribute('data-corr');
+        const orig = btn.getAttribute('data-orig');
+        revertWordAndProtectInDict(targetElement, corr, orig);
+      };
+    });
 
     diffReviewCard.style.display = 'block';
 
     clearTimeout(diffReviewCard._autoTimer);
     diffReviewCard._autoTimer = setTimeout(() => {
       if (diffReviewCard) diffReviewCard.style.display = 'none';
-    }, 12000);
+    }, 15000);
   }
 
   // =========================================================================
@@ -990,7 +1294,27 @@ ${text}`;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(GEMINI_KEY_STORAGE, config.geminiApiKey);
     }
-    showToast(config.geminiApiKey ? '👑 Clé IA Gemini configurée !' : 'Clé API retirée', config.geminiApiKey ? '#10b981' : '#64748b');
+
+    // Synchroniser immédiatement dans le coffre du compte Google actif
+    if (googleAccountEmail) {
+      const vaultKey = `t9_google_vault_${googleAccountEmail}`;
+      let vault = {};
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(vaultKey);
+        if (raw) try { vault = JSON.parse(raw); } catch (e) {}
+        vault.email = googleAccountEmail;
+        vault.apiKey = config.geminiApiKey;
+        vault.model = config.activeModel || vault.model || 'gemini-2.0-flash';
+        vault.dictionary = Array.from(customDictionary);
+        vault.lastSync = new Date().toISOString();
+        localStorage.setItem(vaultKey, JSON.stringify(vault));
+      }
+      if (typeof GM_setValue !== 'undefined') {
+        GM_setValue(vaultKey, vault);
+      }
+    }
+
+    showToast(config.geminiApiKey ? '👑 Clé IA Gemini configurée et synchronisée avec votre compte Google !' : 'Clé API retirée', config.geminiApiKey ? '#10b981' : '#64748b');
     return Boolean(config.geminiApiKey);
   };
 
@@ -1081,10 +1405,22 @@ ${text}`;
     try {
       let list = [];
       if (typeof jsonOrWords === 'string') {
-        const parsed = JSON.parse(jsonOrWords);
-        list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.words) ? parsed.words : []);
+        try {
+          const parsed = JSON.parse(jsonOrWords);
+          if (Array.isArray(parsed)) {
+            list = parsed;
+          } else if (parsed && Array.isArray(parsed.words)) {
+            list = parsed.words;
+          } else if (parsed && typeof parsed === 'object') {
+            list = Object.keys(parsed);
+          }
+        } catch (e) {
+          list = jsonOrWords.split(/[\r\n,;]+/).map(w => w.trim()).filter(Boolean);
+        }
       } else if (Array.isArray(jsonOrWords)) {
         list = jsonOrWords;
+      } else if (jsonOrWords && Array.isArray(jsonOrWords.words)) {
+        list = jsonOrWords.words;
       }
       let added = 0;
       list.forEach(w => {
@@ -1095,8 +1431,10 @@ ${text}`;
         }
       });
       saveCustomDictionary();
-      showToast(`🎉 Dictionnaire restauré : ${added} nouveau(x) mot(s) ajouté(s) (Total : ${customDictionary.size}) !`, '#10b981');
-      window.dispatchEvent(new CustomEvent('T9DictionaryUpdated', { detail: { words: Array.from(customDictionary) } }));
+      showToast(`🎉 Dictionnaire importé : ${added} nouveau(x) mot(s) ajouté(s) (Total : ${customDictionary.size}) !`, '#10b981');
+      try {
+        window.dispatchEvent(new CustomEvent('T9DictionaryUpdated', { detail: { words: Array.from(customDictionary) } }));
+      } catch (e) {}
       return added;
     } catch (e) {
       showToast('❌ Erreur lors de la lecture du fichier de dictionnaire.', '#ef4444');
@@ -1105,7 +1443,25 @@ ${text}`;
   };
 
   /**
+   * Rétablit un mot corrigé par sa version précédente et l'ajoute au dictionnaire
+   */
+  window.T9RevertWordAndProtectInDict = function (targetElement, corrWord, origWord) {
+    return revertWordAndProtectInDict(targetElement, corrWord, origWord);
+  };
+
+  /**
+   * Rétablit un mot corrigé sans l'ajouter au dictionnaire
+   */
+  window.T9RevertWordOnly = function (targetElement, corrWord, origWord) {
+    return revertWordOnly(targetElement, corrWord, origWord);
+  };
+
+  /**
    * Associe le compte Google pour la sauvegarde cloud automatique
+   */
+  /**
+   * Associe le compte Google pour la sauvegarde cloud automatique
+   * (Uniquement appelé suite à une action explicite de l'utilisateur)
    */
   window.T9ConnectGoogleAccount = function (email, name = '', photo = '') {
     if (!email) return false;
@@ -1114,15 +1470,50 @@ ${text}`;
     
     if (typeof GM_setValue !== 'undefined') {
       GM_setValue(GOOGLE_ACCOUNT_STORAGE, googleAccountEmail);
+      GM_setValue('t9_google_account_chosen', true);
       if (userName) GM_setValue('t9_google_user_name', userName);
       if (photo) GM_setValue('t9_google_user_photo', photo);
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(GOOGLE_ACCOUNT_STORAGE, googleAccountEmail);
+      localStorage.setItem('t9_google_account_chosen', 'true');
       if (userName) localStorage.setItem('t9_google_user_name', userName);
       if (photo) localStorage.setItem('t9_google_user_photo', photo);
     }
-    showToast(`☁️ Compte Google lié : ${googleAccountEmail} (Sauvegarde active)`, '#38bdf8');
+
+    // Restauration automatique du Coffre Cloud Google associé à ce compte
+    const vaultKey = `t9_google_vault_${googleAccountEmail}`;
+    let vault = null;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(vaultKey);
+      if (raw) try { vault = JSON.parse(raw); } catch (e) {}
+    }
+    if (!vault && typeof GM_getValue !== 'undefined') {
+      vault = GM_getValue(vaultKey, null);
+    }
+
+    if (vault) {
+      if (vault.apiKey && !config.geminiApiKey) {
+        config.geminiApiKey = vault.apiKey;
+        if (typeof GM_setValue !== 'undefined') GM_setValue(GEMINI_KEY_STORAGE, config.geminiApiKey);
+        if (typeof localStorage !== 'undefined') localStorage.setItem(GEMINI_KEY_STORAGE, config.geminiApiKey);
+      }
+      if (vault.model) {
+        config.activeModel = vault.model;
+      }
+      if (Array.isArray(vault.dictionary) && vault.dictionary.length > 0) {
+        vault.dictionary.forEach(w => customDictionary.add(String(w).trim().toLowerCase()));
+        if (typeof GM_setValue !== 'undefined') GM_setValue(CUSTOM_DICT_STORAGE, Array.from(customDictionary));
+        if (typeof localStorage !== 'undefined') localStorage.setItem(CUSTOM_DICT_STORAGE, JSON.stringify(Array.from(customDictionary)));
+        try {
+          window.dispatchEvent(new CustomEvent('T9DictionaryUpdated', { detail: { words: Array.from(customDictionary) } }));
+        } catch (e) {}
+      }
+      showToast(`☁️ Compte Google synchronisé : Clé API & dictionnaire (${customDictionary.size} mots) restaurés !`, '#10b981');
+    } else {
+      showToast(`☁️ Compte Google lié : ${googleAccountEmail} (Sauvegarde active)`, '#38bdf8');
+    }
+
     return true;
   };
 
@@ -1130,73 +1521,182 @@ ${text}`;
    * Retourne l'email du compte Google actuellement associé
    */
   window.T9GetGoogleAccount = function () {
-    return googleAccountEmail;
+    const isChosen = typeof GM_getValue !== 'undefined'
+      ? GM_getValue('t9_google_account_chosen', false)
+      : (typeof localStorage !== 'undefined' && localStorage.getItem('t9_google_account_chosen') === 'true');
+    return isChosen ? googleAccountEmail : '';
   };
 
   /**
-   * Retourne le profil Google complet
+   * Retourne le profil Google complet (séparant compte confirmé et compte détecté)
    */
   window.T9GetGoogleProfile = function () {
+    const isChosen = typeof GM_getValue !== 'undefined'
+      ? Boolean(GM_getValue('t9_google_account_chosen', false))
+      : (typeof localStorage !== 'undefined' && localStorage.getItem('t9_google_account_chosen') === 'true');
+
     let name = '';
-    let email = googleAccountEmail;
+    let email = '';
     let photo = '';
-    if (typeof GM_getValue !== 'undefined') {
-      name = GM_getValue('t9_google_user_name', '');
-      photo = GM_getValue('t9_google_user_photo', '');
-    } else if (typeof localStorage !== 'undefined') {
-      name = localStorage.getItem('t9_google_user_name') || '';
-      photo = localStorage.getItem('t9_google_user_photo') || '';
+
+    if (isChosen) {
+      if (typeof GM_getValue !== 'undefined') {
+        email = GM_getValue(GOOGLE_ACCOUNT_STORAGE, '') || googleAccountEmail;
+        name = GM_getValue('t9_google_user_name', '');
+        photo = GM_getValue('t9_google_user_photo', '');
+      } else if (typeof localStorage !== 'undefined') {
+        email = localStorage.getItem(GOOGLE_ACCOUNT_STORAGE) || '';
+        name = localStorage.getItem('t9_google_user_name') || '';
+        photo = localStorage.getItem('t9_google_user_photo') || '';
+      }
     }
-    return { name, email, photo };
+
+    let detectedEmail = '';
+    let detectedName = '';
+    let detectedPhoto = '';
+
+    if (typeof GM_getValue !== 'undefined') {
+      detectedEmail = GM_getValue('t9_detected_google_email', '');
+      detectedName = GM_getValue('t9_detected_google_name', '');
+      detectedPhoto = GM_getValue('t9_detected_google_photo', '');
+    } else if (typeof localStorage !== 'undefined') {
+      detectedEmail = localStorage.getItem('t9_detected_google_email') || '';
+      detectedName = localStorage.getItem('t9_detected_google_name') || '';
+      detectedPhoto = localStorage.getItem('t9_detected_google_photo') || '';
+    }
+
+    return { isChosen, name, email, photo, detectedEmail, detectedName, detectedPhoto };
   };
 
   /**
-   * Détection automatique de profil quand l'utilisateur navigue sur un service Google
+   * Déconnecte le compte Google associé
+   */
+  window.T9DisconnectGoogleAccount = function () {
+    googleAccountEmail = '';
+    if (typeof GM_setValue !== 'undefined') {
+      GM_setValue(GOOGLE_ACCOUNT_STORAGE, '');
+      GM_setValue('t9_google_account_chosen', false);
+      GM_setValue('t9_google_user_name', '');
+      GM_setValue('t9_google_user_photo', '');
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(GOOGLE_ACCOUNT_STORAGE);
+      localStorage.setItem('t9_google_account_chosen', 'false');
+      localStorage.removeItem('t9_google_user_name');
+      localStorage.removeItem('t9_google_user_photo');
+    }
+    showToast('🚪 Compte Google déconnecté.', '#64748b');
+    return true;
+  };
+
+  /**
+   * Détection de profil quand l'utilisateur navigue sur un service Google
+   * Ferme automatiquement la popup d'authentification dès que la connexion réussit
    */
   function autoDetectGoogleAccountOnGoogleDomains() {
     if (typeof location === 'undefined' || !location.hostname || !location.hostname.endsWith('google.com')) return;
-    
+
+    const isT9AuthPopup = (window.name === 'GoogleAuthPopup') ||
+      location.href.includes('t9_auth=1') ||
+      (typeof GM_getValue !== 'undefined' && GM_getValue('t9_google_auth_in_progress', false));
+
+    function findGoogleUser() {
+      let foundEmail = '';
+      let foundName = '';
+      let foundPhoto = '';
+
+      // 1. Bouton compte Google ou avatar
+      const accountEl = document.querySelector('a[aria-label*="Compte Google"], a[aria-label*="Google Account"], button[aria-label*="Compte Google"], button[aria-label*="Google Account"], button[aria-label*="@"], a[aria-label*="@"], [data-ogsr-up] a, a[href*="SignOutOptions"]');
+      if (accountEl) {
+        const label = accountEl.getAttribute('aria-label') || accountEl.innerText || '';
+        const emailMatch = label.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (emailMatch) foundEmail = emailMatch[1];
+        const nameMatch = label.match(/(?:Compte Google|Google Account)\s*:\s*([^(\n]+)/i);
+        if (nameMatch) foundName = nameMatch[1].trim();
+      }
+
+      // 2. Éléments data-email ou data-identifier
+      if (!foundEmail) {
+        const emailEl = document.querySelector('[data-email], [data-identifier]');
+        if (emailEl) foundEmail = emailEl.getAttribute('data-email') || emailEl.getAttribute('data-identifier');
+      }
+
+      // 3. Image d'avatar
+      const imgEl = document.querySelector('img[src*="googleusercontent.com"], img.gb_m, img.gb_k, [data-ogsr-up] img, button[aria-label*="@"] img, img[alt*="photo de profil" i], img[alt*="profile picture" i]');
+      if (imgEl && imgEl.src) foundPhoto = imgEl.src;
+
+      // 4. Recherche regex dans les scripts de configuration Google (WIZ_global_data, etc.)
+      if (!foundEmail) {
+        try {
+          const html = document.documentElement.innerHTML;
+          const match = html.match(/"([a-zA-Z0-9._%+-]+@(gmail\.com|googlemail\.com|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))"/);
+          if (match && !match[1].includes('example.com') && !match[1].includes('google.com/')) {
+            foundEmail = match[1];
+          }
+        } catch (e) {}
+      }
+
+      return { foundEmail, foundName, foundPhoto };
+    }
+
+    let closed = false;
     function scan() {
+      if (closed) return;
       try {
-        const accountEl = document.querySelector('a[aria-label*="Compte Google"], a[aria-label*="Google Account"], button[aria-label*="Compte Google"], button[aria-label*="Google Account"], button[aria-label*="@"], [data-ogsr-up] a, a[href*="SignOutOptions"]');
-        const imgEl = document.querySelector('img[src*="googleusercontent.com"], img.gb_m, img.gb_k, [data-ogsr-up] img, button[aria-label*="@"] img, img[alt*="photo de profil" i], img[alt*="profile picture" i]');
-        
-        let foundPhoto = imgEl && imgEl.src ? imgEl.src : '';
-        let foundEmail = '';
-        let foundName = '';
-
-        if (accountEl) {
-          const label = accountEl.getAttribute('aria-label') || accountEl.innerText || '';
-          const emailMatch = label.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-          if (emailMatch) foundEmail = emailMatch[1];
-          const nameMatch = label.match(/(?:Compte Google|Google Account)\s*:\s*([^(\n]+)/i);
-          if (nameMatch) foundName = nameMatch[1].trim();
-        }
-
-        if (!foundEmail) {
-          const emailEl = document.querySelector('[data-email], [data-identifier]');
-          if (emailEl) foundEmail = emailEl.getAttribute('data-email') || emailEl.getAttribute('data-identifier');
-        }
+        const { foundEmail, foundName, foundPhoto } = findGoogleUser();
 
         if (foundEmail || foundName || foundPhoto) {
           if (typeof GM_setValue !== 'undefined') {
-            if (foundEmail) GM_setValue(GOOGLE_ACCOUNT_STORAGE, foundEmail);
-            if (foundName) GM_setValue('t9_google_user_name', foundName);
-            if (foundPhoto) GM_setValue('t9_google_user_photo', foundPhoto);
+            if (foundEmail) GM_setValue('t9_detected_google_email', foundEmail);
+            if (foundName) GM_setValue('t9_detected_google_name', foundName);
+            if (foundPhoto) GM_setValue('t9_detected_google_photo', foundPhoto);
           }
-          if (typeof localStorage !== 'undefined') {
-            if (foundEmail) localStorage.setItem(GOOGLE_ACCOUNT_STORAGE, foundEmail);
-            if (foundName) localStorage.setItem('t9_google_user_name', foundName);
-            if (foundPhoto) localStorage.setItem('t9_google_user_photo', foundPhoto);
+        }
+
+        // Si c'est la popup d'authentification T9
+        if (isT9AuthPopup) {
+          const isFinished = Boolean(foundEmail) || location.hostname.includes('aistudio.google.com');
+
+          if (isFinished) {
+            closed = true;
+            const finalEmail = foundEmail || (typeof GM_getValue !== 'undefined' ? GM_getValue('t9_detected_google_email', '') : '') || '';
+            const finalName = foundName || (typeof GM_getValue !== 'undefined' ? GM_getValue('t9_detected_google_name', '') : '') || (finalEmail ? finalEmail.split('@')[0] : 'Compte Google');
+
+            if (typeof GM_setValue !== 'undefined') {
+              GM_setValue('t9_google_account_chosen', true);
+              if (finalEmail) GM_setValue(GOOGLE_ACCOUNT_STORAGE, finalEmail);
+              if (finalName) GM_setValue('t9_google_user_name', finalName);
+              if (foundPhoto) GM_setValue('t9_google_user_photo', foundPhoto);
+              GM_setValue('t9_google_auth_completed', String(Date.now()));
+              GM_setValue('t9_google_auth_in_progress', false);
+            }
+
+            // Notifier la page parente si ouverte via popup
+            if (window.opener) {
+              try {
+                window.opener.postMessage({
+                  type: 'T9_GOOGLE_AUTH_SUCCESS',
+                  email: finalEmail,
+                  name: finalName,
+                  photo: foundPhoto
+                }, '*');
+              } catch (e) {}
+            }
+
+            // Fermer automatiquement la fenêtre popup officielle dès la connexion validée
+            setTimeout(() => {
+              try { window.close(); } catch (e) {}
+            }, 300);
           }
         }
       } catch (e) {}
     }
 
     scan();
-    setTimeout(scan, 1000);
-    setTimeout(scan, 2500);
-    setTimeout(scan, 5000);
+    setTimeout(scan, 300);
+    setTimeout(scan, 800);
+    setTimeout(scan, 1500);
+    setTimeout(scan, 3000);
 
     // Observer si le header Google se charge en asynchrone
     if (typeof MutationObserver !== 'undefined' && document.body) {

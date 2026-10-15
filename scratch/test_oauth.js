@@ -1,7 +1,7 @@
 // Test de l'URL Google OAuth officielle
 const params = new URLSearchParams({
   client_id: '407408718192.apps.googleusercontent.com',
-  redirect_uri: 'https://aistudio.google.com',
+  redirect_uri: 'https://developers.google.com/oauthplayground',
   response_type: 'token',
   scope: 'email profile',
   prompt: 'select_account'

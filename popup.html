@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>T9 Autocorrect AI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 320px;
+      background: #090d16;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 14px;
+      user-select: none;
+    }
+
+    /* En-tête */
+    .popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 800;
+      font-size: 13.5px;
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-version {
+      font-size: 10px;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: #c4b5fd;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    /* =========================================================================
+       1. ÉCRAN DÉCONNECTÉ (STRICT MINIMUM : JUSTE LE BOUTON GOOGLE)
+       ========================================================================= */
+    #view-disconnected {
+      display: none;
+      padding: 10px 0;
+    }
+
+    .btn-google-login {
+      width: 100%;
+      background: #ffffff;
+      color: #1f2937;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      transition: all 0.15s ease;
+    }
+
+    .btn-google-login:hover {
+      background: #f8fafc;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn-google-login svg {
+      width: 19px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+
+    /* =========================================================================
+       2. CARTE DE PROFIL (AFFICHÉE DÈS QUE CONNECTÉ)
+       ========================================================================= */
+    #view-connected {
+      display: none;
+    }
+
+    .profile-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+    }
+
+    .profile-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .profile-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1.5px solid #10b981;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #1e293b;
+    }
+
+    .profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-details {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .profile-name {
+      font-weight: 700;
+      font-size: 12.5px;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-email {
+      font-size: 10.5px;
+      color: #34d399;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-disconnect-mini {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+      margin-left: 6px;
+    }
+
+    .btn-disconnect-mini:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+
+    .btn-disconnect-mini svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    /* =========================================================================
+       3. SAISIE DE CLÉ API DIRECTE (SI CLÉ MANQUANTE)
+       ========================================================================= */
+    #view-needs-key {
+      display: none;
+    }
+
+    .key-input-field {
+      width: 100%;
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12px;
+      color: #ffffff;
+      margin-bottom: 8px;
+      outline: none;
+    }
+
+    .key-input-field:focus {
+      border-color: #6366f1;
+    }
+
+    .btn-save-key {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      border: none;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: opacity 0.15s ease;
+    }
+
+    .btn-save-key:hover {
+      opacity: 0.92;
+    }
+
+    .link-get-key {
+      display: block;
+      text-align: center;
+      font-size: 11px;
+      color: #93c5fd;
+      text-decoration: none;
+      padding: 2px 0;
+    }
+
+    .link-get-key:hover {
+      text-decoration: underline;
+      color: #ffffff;
+    }
+
+    /* =========================================================================
+       4. DASHBOARD PRÊT (GOOGLE + CLÉ API ACTIVES)
+       ========================================================================= */
+    #ready-dashboard {
+      display: none;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      padding: 9px 12px;
+      margin-bottom: 12px;
+    }
+
+    .toggle-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #334155;
+      transition: 0.25s;
+      border-radius: 22px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #10b981;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(18px);
+    }
+
+    .btn-action-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+      transition: opacity 0.15s ease;
+      margin-bottom: 8px;
+    }
+
+    .btn-action-primary:hover {
+      opacity: 0.92;
+    }
+
+    .btn-action-secondary {
+      width: 100%;
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px;
+      text-align: center;
+    }
+
+    .btn-action-secondary:hover {
+      color: #cbd5e1;
+      text-decoration: underline;
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: #fca5a5;
+      text-align: center;
+      margin-top: 4px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- EN-TÊTE ÉPURÉ -->
+  <div class="popup-header">
+    <div class="brand-title">
+      <span>🧠</span>
+      <span>T9 Autocorrect AI</span>
+    </div>
+    <span class="brand-version">v3.0</span>
+  </div>
+
+  <!-- 1. DÉCONNECTÉ : STRICTEMENT LE BOUTON GOOGLE -->
+  <div id="view-disconnected">
+    <button class="btn-google-login" id="btn-login-google">
+      <svg viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+      </svg>
+      <span id="btn-google-label">Se connecter avec Google</span>
+    </button>
+  </div>
+
+  <!-- 2. CONNECTÉ : PROFIL + CLÉ OU DASHBOARD -->
+  <div id="view-connected">
+    <!-- Profil Google -->
+    <div class="profile-card">
+      <div class="profile-left">
+        <div class="profile-avatar">
+          <img id="avatar-img" src="user-profile.png" alt="Avatar">
+        </div>
+        <div class="profile-details">
+          <span class="profile-name" id="user-name">Mon Compte</span>
+          <span class="profile-email" id="user-email">email@gmail.com</span>
+        </div>
+      </div>
+      <button class="btn-disconnect-mini" id="btn-disconnect-account" title="Déconnecter le compte Google">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Si Clé API manquante : saisie directe sans détour -->
+    <div id="view-needs-key">
+      <input type="password" id="popup-key-input" class="key-input-field" placeholder="Collez votre clé API Gemini (AIzaSy...)">
+      <button class="btn-save-key" id="btn-save-popup-key">Valider ma clé API</button>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-get-key">Obtenir une clé API gratuite (Google AI Studio) ↗</a>
+      <div id="popup-key-error" class="status-badge" style="display: none;"></div>
+    </div>
+
+    <!-- Si tout est prêt : dashboard minimal -->
+    <div id="ready-dashboard">
+      <div class="toggle-row">
+        <span class="toggle-label">
+          <span>⚡</span> Autocorrection active
+        </span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-active" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="btn-action-primary" id="btn-open-options">
+        <span>🚀 Banc d'Essai & Dictionnaire</span>
+      </button>
+
+      <button class="btn-action-secondary" id="btn-open-key">
+        Modifier la clé API
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
